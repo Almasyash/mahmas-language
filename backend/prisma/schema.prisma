@@ -1,0 +1,806 @@
+// ==============================================================================
+// MAHMAS LANGUAGE — PRISMA DATABASE SCHEMA
+// PostgreSQL Relational Database Model
+// ==============================================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ------------------------------------------------------------------------------
+// ENUMS
+// ------------------------------------------------------------------------------
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  CONTENT_MANAGER
+  MODERATOR
+  SUPPORT
+  LEARNER
+}
+
+enum CEFRLevel {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+}
+
+enum LearningGoal {
+  SPEAKING
+  TRAVEL
+  SCHOOL
+  WORK
+  INTERVIEW
+  DAILY_CONVERSATION
+  FLUENCY
+  VOCABULARY
+}
+
+enum ExerciseType {
+  MULTIPLE_CHOICE
+  TRANSLATION
+  WORD_ARRANGEMENT
+  FILL_IN_BLANK
+  MATCHING
+  LISTENING
+  SPEAKING
+  PRONUNCIATION
+  DICTATION
+  READING
+  WRITING
+  CONVERSATION
+  VOCABULARY_RECALL
+}
+
+enum CallType {
+  AI_VOICE
+  AI_VIDEO
+  HUMAN_AUDIO
+  HUMAN_VIDEO
+}
+
+enum CallStatus {
+  INITIATED
+  RINGING
+  CONNECTED
+  COMPLETED
+  REJECTED
+  MISSED
+  BUSY
+  FAILED
+}
+
+enum SubscriptionTier {
+  FREE
+  PLUS
+  PRO
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ReportReason {
+  HARASSMENT
+  INAPPROPRIATE_CONTENT
+  SPAM
+  IMPERSONATION
+  HATE_SPEECH
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  UNDER_REVIEW
+  ACTION_TAKEN
+  DISMISSED
+}
+
+enum CurrencyType {
+  GEMS
+  COINS
+  HEARTS
+}
+
+// ------------------------------------------------------------------------------
+// CORE USER & AUTHENTICATION
+// ------------------------------------------------------------------------------
+
+model User {
+  id                   String        @id @default(uuid())
+  email                String?       @unique
+  phoneNumber          String?       @unique
+  passwordHash         String?
+  role                 UserRole      @default(LEARNER)
+  isActive             Boolean       @default(true)
+  isVerified           Boolean       @default(false)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  deletedAt            DateTime?
+
+  profile              Profile?
+  deviceSessions       DeviceSession[]
+  userVocabularies     UserVocabulary[]
+  userProgress         UserProgress[]
+  lessonAttempts       LessonAttempt[]
+  speakingAttempts     SpeakingAttempt[]
+  pronunciationScores  PronunciationScore[]
+  dailyGoals           DailyGoal[]
+  streaks              Streak[]
+  xpTransactions       XPTransaction[]
+  virtualCurrencies    VirtualCurrency[]
+  friendsInitiated     Friend[]      @relation("FriendsInitiator")
+  friendsReceived      Friend[]      @relation("FriendsRecipient")
+  following            Follow[]      @relation("UserFollowing")
+  followers            Follow[]      @relation("UserFollowers")
+  notifications        Notification[]
+  aiConversations      AIConversation[]
+  callParticipants     CallParticipant[]
+  exchangePreference   LanguageExchangePreference?
+  blockedUsers         Block[]       @relation("BlockerRelation")
+  blockedBy            Block[]       @relation("BlockedRelation")
+  reportsFiled         Report[]      @relation("ReporterRelation")
+  reportsReceived      Report[]      @relation("ReportedUserRelation")
+  subscriptions        Subscription[]
+  payments             Payment[]
+  callReports          CallReport[]
+  leaderboardEntries   Leaderboard[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Profile {
+  id               String       @id @default(uuid())
+  userId           String       @unique
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName      String
+  avatarUrl        String?
+  bio              String?      @db.Text
+  nativeLanguageId String
+  targetLanguageId String
+  nativeLanguage   Language     @relation("ProfileNativeLanguage", fields: [nativeLanguageId], references: [id])
+  targetLanguage   Language     @relation("ProfileTargetLanguage", fields: [targetLanguageId], references: [id])
+  currentLevel     CEFRLevel    @default(A1)
+  learningGoal     LearningGoal @default(DAILY_CONVERSATION)
+  dailyMinutesGoal Int          @default(15)
+  hearts           Int          @default(5)
+  maxHearts        Int          @default(5)
+  lastHeartRefillAt DateTime    @default(now())
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([userId])
+}
+
+model DeviceSession {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String    @unique
+  deviceInfo   String?
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// ------------------------------------------------------------------------------
+// LANGUAGES, COURSES, UNITS & LESSONS
+// ------------------------------------------------------------------------------
+
+model Language {
+  id                   String       @id @default(uuid())
+  code                 String       @unique // e.g. "es", "fr", "en", "de"
+  name                 String       // e.g. "Spanish"
+  nativeName           String       // e.g. "Español"
+  flagEmoji            String?
+  isActive             Boolean      @default(true)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  nativeProfiles       Profile[]    @relation("ProfileNativeLanguage")
+  targetProfiles       Profile[]    @relation("ProfileTargetLanguage")
+  courses              Course[]
+  vocabularyWords      VocabularyWord[]
+  languageLevels       LanguageLevel[]
+
+  @@index([code])
+}
+
+model LanguageLevel {
+  id          String     @id @default(uuid())
+  languageId  String
+  language    Language   @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  level       CEFRLevel
+  name        String     // e.g. "Beginner A1"
+  description String?    @db.Text
+  orderIndex  Int        @default(1)
+  courses     Course[]
+
+  @@unique([languageId, level])
+  @@index([languageId])
+}
+
+model Course {
+  id              String          @id @default(uuid())
+  languageId      String
+  language        Language        @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  languageLevelId String
+  languageLevel   LanguageLevel   @relation(fields: [languageLevelId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?         @db.Text
+  bannerUrl       String?
+  isPublished     Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  sections        CourseSection[]
+  userProgress    UserProgress[]
+
+  @@index([languageId])
+}
+
+model CourseSection {
+  id          String       @id @default(uuid())
+  courseId    String
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String?      @db.Text
+  orderIndex  Int          @default(1)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  units       CourseUnit[]
+
+  @@index([courseId])
+}
+
+model CourseUnit {
+  id          String       @id @default(uuid())
+  sectionId   String
+  section     CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  title       String
+  description String?      @db.Text
+  guideBook   String?      @db.Text
+  orderIndex  Int          @default(1)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  lessons     Lesson[]
+
+  @@index([sectionId])
+}
+
+model Lesson {
+  id          String          @id @default(uuid())
+  unitId      String
+  unit        CourseUnit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  title       String
+  orderIndex  Int             @default(1)
+  xpReward    Int             @default(15)
+  gemReward   Int             @default(2)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  exercises   Exercise[]
+  attempts    LessonAttempt[]
+
+  @@index([unitId])
+}
+
+model Exercise {
+  id                    String           @id @default(uuid())
+  lessonId              String
+  lesson                Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  type                  ExerciseType
+  orderIndex            Int              @default(1)
+  question              String           @db.Text
+  promptAudioUrl        String?
+  expectedAnswer        String           @db.Text
+  acceptableAlternatives String[]        // JSON string array of alternative acceptable answers
+  explanation           String?          @db.Text
+  hint                  String?          @db.Text
+  xp                    Int              @default(5)
+  difficulty            Int              @default(1) // 1-5
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  options               ExerciseOption[]
+  mistakes              Mistake[]
+  speakingAttempts      SpeakingAttempt[]
+
+  @@index([lessonId])
+}
+
+model ExerciseOption {
+  id         String   @id @default(uuid())
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  text       String
+  audioUrl   String?
+  isCorrect  Boolean  @default(false)
+  orderIndex Int      @default(1)
+
+  @@index([exerciseId])
+}
+
+// ------------------------------------------------------------------------------
+// VOCABULARY & PRACTICE
+// ------------------------------------------------------------------------------
+
+model VocabularyWord {
+  id               String           @id @default(uuid())
+  languageId       String
+  language         Language         @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  word             String
+  phonetic         String?
+  translation      String
+  partOfSpeech     String?
+  audioUrl         String?
+  exampleSentence  String?          @db.Text
+  exampleTranslation String?        @db.Text
+  level            CEFRLevel        @default(A1)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  userVocabularies UserVocabulary[]
+
+  @@index([languageId, word])
+}
+
+model UserVocabulary {
+  id             String         @id @default(uuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordId         String
+  word           VocabularyWord @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  strength       Int            @default(1) // SRS Strength 1-5
+  nextReviewAt   DateTime       @default(now())
+  lastReviewedAt DateTime?
+  repetitions    Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([userId, wordId])
+  @@index([userId, nextReviewAt])
+}
+
+// ------------------------------------------------------------------------------
+// USER PROGRESS, ATTEMPTS & MISTAKES
+// ------------------------------------------------------------------------------
+
+model UserProgress {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId         String
+  course           Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  currentSectionId String?
+  currentUnitId    String?
+  currentLessonId  String?
+  isCompleted      Boolean  @default(false)
+  completedLessons Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, courseId])
+  @@index([userId])
+}
+
+model LessonAttempt {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId     String
+  lesson       Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  score        Int       // Percentage 0-100
+  xpEarned     Int       @default(0)
+  gemsEarned   Int       @default(0)
+  durationSec  Int       @default(0)
+  isSuccessful Boolean   @default(true)
+  completedAt  DateTime  @default(now())
+
+  mistakes     Mistake[]
+
+  @@index([userId, lessonId])
+}
+
+model Mistake {
+  id              String         @id @default(uuid())
+  lessonAttemptId String?
+  lessonAttempt   LessonAttempt? @relation(fields: [lessonAttemptId], references: [id], onDelete: Cascade)
+  exerciseId      String
+  exercise        Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  userGivenAnswer String         @db.Text
+  isResolved      Boolean        @default(false)
+  resolvedAt      DateTime?
+  createdAt       DateTime       @default(now())
+
+  @@index([exerciseId])
+}
+
+model SpeakingAttempt {
+  id                  String               @id @default(uuid())
+  userId              String
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseId          String
+  exercise            Exercise             @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  transcribedText     String?              @db.Text
+  audioRecordingUrl   String?
+  overallAccuracy     Decimal              @db.Decimal(5, 2) // 0.00 to 100.00
+  createdAt           DateTime             @default(now())
+
+  pronunciationScores PronunciationScore[]
+
+  @@index([userId, exerciseId])
+}
+
+model PronunciationScore {
+  id                String          @id @default(uuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  speakingAttemptId String
+  speakingAttempt   SpeakingAttempt @relation(fields: [speakingAttemptId], references: [id], onDelete: Cascade)
+  phoneme           String
+  accuracyScore     Decimal         @db.Decimal(5, 2)
+  fluencyScore      Decimal         @db.Decimal(5, 2)
+  completenessScore Decimal         @db.Decimal(5, 2)
+  createdAt         DateTime        @default(now())
+
+  @@index([userId])
+}
+
+// ------------------------------------------------------------------------------
+// GAMIFICATION: STREAKS, XP, CURRENCY, QUESTS & LEADERBOARDS
+// ------------------------------------------------------------------------------
+
+model DailyGoal {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetXP     Int      @default(30)
+  earnedXP     Int      @default(0)
+  targetDate   DateTime @db.Date
+  isCompleted  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, targetDate])
+  @@index([userId])
+}
+
+model Streak {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentStreak      Int       @default(0)
+  longestStreak      Int       @default(0)
+  streakFreezeCount  Int       @default(0)
+  lastActivityDate   DateTime? @db.Date
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model XPTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Int
+  reason      String   // e.g. "LESSON_COMPLETED", "PRACTICE_SESSION", "AI_CALL"
+  referenceId String?  // Optional relation to lessonAttemptId, callId, etc.
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model VirtualCurrency {
+  id        String       @id @default(uuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      CurrencyType
+  balance   Int          @default(0)
+  updatedAt DateTime     @updatedAt
+
+  @@unique([userId, type])
+  @@index([userId])
+}
+
+model Quest {
+  id             String    @id @default(uuid())
+  title          String
+  description    String    @db.Text
+  xpReward       Int       @default(20)
+  gemReward      Int       @default(5)
+  targetCount    Int       @default(1)
+  questType      String    // e.g. "COMPLETE_LESSONS", "SPEAKING_PRACTICE", "AI_MINUTES"
+  startDate      DateTime
+  endDate        DateTime
+  isWeekly       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+}
+
+model Achievement {
+  id          String   @id @default(uuid())
+  code        String   @unique // e.g. "FIRST_CONVERSATION", "STREAK_30", "VOCAB_100"
+  title       String
+  description String   @db.Text
+  badgeIcon   String
+  maxTier     Int      @default(5)
+  createdAt   DateTime @default(now())
+}
+
+model Leaderboard {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier        String   @default("Bronze") // Bronze, Silver, Gold, Sapphire, Ruby, Diamond
+  weeklyXP    Int      @default(0)
+  weekNumber  Int      // ISO week number
+  year        Int
+  rank        Int?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, weekNumber, year])
+  @@index([tier, weeklyXP(sort: Desc)])
+}
+
+// ------------------------------------------------------------------------------
+// SOCIAL & COMMUNITY
+// ------------------------------------------------------------------------------
+
+model Friend {
+  id          String   @id @default(uuid())
+  initiatorId String
+  initiator   User     @relation("FriendsInitiator", fields: [initiatorId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient   User     @relation("FriendsRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  isAccepted  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([initiatorId, recipientId])
+  @@index([initiatorId])
+  @@index([recipientId])
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String   @db.Text
+  type      String   // "REMINDER", "STREAK", "CALL", "FRIEND", "ACHIEVEMENT"
+  payload   Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+// ------------------------------------------------------------------------------
+// AI TUTOR SYSTEM
+// ------------------------------------------------------------------------------
+
+model AICharacter {
+  id                  String           @id @default(uuid())
+  name                String           // e.g. "Professor Elena", "Mateo the Barista"
+  avatarUrl           String
+  personalityPrompt   String           @db.Text
+  defaultVoice        String?          // e.g. "en-US-Journey-F"
+  targetLanguageCode  String
+  difficultyCEFR      CEFRLevel        @default(A1)
+  isActive            Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  conversations       AIConversation[]
+
+  @@index([targetLanguageCode])
+}
+
+model AIConversation {
+  id             String                 @id @default(uuid())
+  userId         String
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  characterId    String
+  character      AICharacter            @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  topic          String?
+  startedAt      DateTime               @default(now())
+  endedAt        DateTime?
+
+  messages       AIMessage[]
+  memories       AIConversationMemory[]
+
+  @@index([userId, characterId])
+}
+
+model AIMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderRole     String         // "USER" or "ASSISTANT"
+  content        String         @db.Text
+  audioUrl       String?
+  correctionNote String?        @db.Text
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId])
+}
+
+model AIConversationMemory {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  memoryKey      String         // e.g. "USER_HOBBY", "FAVORITE_FOOD"
+  memoryValue    String         @db.Text
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId])
+}
+
+// ------------------------------------------------------------------------------
+// REAL-TIME CALLING & LANGUAGE EXCHANGE
+// ------------------------------------------------------------------------------
+
+model HumanCall {
+  id           String            @id @default(uuid())
+  callType     CallType
+  status       CallStatus        @default(INITIATED)
+  startedAt    DateTime?
+  endedAt      DateTime?
+  durationSec  Int               @default(0)
+  createdAt    DateTime          @default(now())
+
+  participants CallParticipant[]
+  reports      CallReport[]
+
+  @@index([status])
+}
+
+model CallParticipant {
+  id        String    @id @default(uuid())
+  callId    String
+  call      HumanCall @relation(fields: [callId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isCaller  Boolean   @default(false)
+  joinedAt  DateTime?
+  leftAt    DateTime?
+
+  @@unique([callId, userId])
+  @@index([userId])
+}
+
+model CallReport {
+  id           String       @id @default(uuid())
+  callId       String
+  call         HumanCall    @relation(fields: [callId], references: [id], onDelete: Cascade)
+  reporterId   String
+  reporter     User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reason       ReportReason
+  details      String?      @db.Text
+  status       ReportStatus @default(PENDING)
+  createdAt    DateTime     @default(now())
+
+  @@index([callId])
+  @@index([reporterId])
+}
+
+model LanguageExchangePreference {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredLevel      CEFRLevel @default(A1)
+  interests           String[] // Array of topic interests
+  availability        String?  // Time availability JSON/string
+  allowAudioCalls     Boolean  @default(true)
+  allowVideoCalls     Boolean  @default(true)
+  isDiscoverable      Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ------------------------------------------------------------------------------
+// SAFETY, BLOCKING & REPORTING
+// ------------------------------------------------------------------------------
+
+model Block {
+  id        String   @id @default(uuid())
+  blockerId String
+  blocker   User     @relation("BlockerRelation", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("BlockedRelation", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+model Report {
+  id             String       @id @default(uuid())
+  reporterId     String
+  reporter       User         @relation("ReporterRelation", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUserId String
+  reportedUser   User         @relation("ReportedUserRelation", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  reason         ReportReason
+  details        String?      @db.Text
+  status         ReportStatus @default(PENDING)
+  moderatorNotes String?      @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([reportedUserId])
+  @@index([status])
+}
+
+// ------------------------------------------------------------------------------
+// SUBSCRIPTIONS & MONETIZATION
+// ------------------------------------------------------------------------------
+
+model Subscription {
+  id                   String           @id @default(uuid())
+  userId               String
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier                 SubscriptionTier @default(FREE)
+  isActive             Boolean          @default(true)
+  startDate            DateTime         @default(now())
+  endDate              DateTime?
+  autoRenew            Boolean          @default(true)
+  externalCustomerId   String?
+  externalSubId        String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  payments             Payment[]
+
+  @@index([userId, tier])
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  amount         Decimal       @db.Decimal(10, 2)
+  currency       String        @default("USD")
+  status         PaymentStatus @default(PENDING)
+  provider       String        // e.g. "STRIPE", "GOOGLE_PLAY", "APPLE_APP_STORE"
+  transactionRef String?
+  createdAt      DateTime      @default(now())
+
+  @@index([userId])
+}
