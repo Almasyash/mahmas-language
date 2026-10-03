@@ -24,6 +24,24 @@ export const errorHandler = (
     return;
   }
 
+  // Handle Zod Schema Validation Errors
+  if (err && (err.name === 'ZodError' || 'issues' in err)) {
+    const zodErr = err as any;
+    const firstIssue = zodErr.issues?.[0];
+    const message = firstIssue?.message || 'Validation failed';
+    const response: ApiResponse = {
+      success: false,
+      error: {
+        code: 'VALIDATION_FAILED',
+        message,
+        details: zodErr.issues,
+      },
+      meta: { timestamp },
+    };
+    res.status(400).json(response);
+    return;
+  }
+
   console.error('Unhandled Server Error:', err);
   const response: ApiResponse = {
     success: false,

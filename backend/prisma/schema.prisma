@@ -126,6 +126,7 @@ model User {
   role                 UserRole      @default(LEARNER)
   isActive             Boolean       @default(true)
   isVerified           Boolean       @default(false)
+  onboardingCompleted  Boolean       @default(false)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   deletedAt            DateTime?
@@ -163,39 +164,43 @@ model User {
 }
 
 model Profile {
-  id               String       @id @default(uuid())
-  userId           String       @unique
-  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  displayName      String
-  avatarUrl        String?
-  bio              String?      @db.Text
-  nativeLanguageId String
-  targetLanguageId String
-  nativeLanguage   Language     @relation("ProfileNativeLanguage", fields: [nativeLanguageId], references: [id])
-  targetLanguage   Language     @relation("ProfileTargetLanguage", fields: [targetLanguageId], references: [id])
-  currentLevel     CEFRLevel    @default(A1)
-  learningGoal     LearningGoal @default(DAILY_CONVERSATION)
-  dailyMinutesGoal Int          @default(15)
-  hearts           Int          @default(5)
-  maxHearts        Int          @default(5)
-  lastHeartRefillAt DateTime    @default(now())
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id                String       @id @default(uuid())
+  userId            String       @unique
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName       String
+  avatarUrl         String?
+  bio               String?      @db.Text
+  nativeLanguageId  String?
+  targetLanguageId  String?
+  nativeLanguage    Language?    @relation("ProfileNativeLanguage", fields: [nativeLanguageId], references: [id])
+  targetLanguage    Language?    @relation("ProfileTargetLanguage", fields: [targetLanguageId], references: [id])
+  timezone          String       @default("UTC")
+  currentLevel      CEFRLevel    @default(A1)
+  learningGoal      LearningGoal @default(DAILY_CONVERSATION)
+  dailyMinutesGoal  Int          @default(15)
+  hearts            Int          @default(5)
+  maxHearts         Int          @default(5)
+  lastHeartRefillAt DateTime     @default(now())
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   @@index([userId])
 }
 
 model DeviceSession {
-  id           String    @id @default(uuid())
-  userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  refreshToken String    @unique
-  deviceInfo   String?
-  ipAddress    String?
-  userAgent    String?
-  expiresAt    DateTime
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique
+  deviceId         String?
+  deviceName       String?
+  platform         String?
+  ipAddress        String?
+  userAgent        String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([userId])
 }

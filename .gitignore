@@ -82,3 +82,9 @@ mobile/web/bundle.js
 *~
 .DS_Store
 Thumbs.db
+
+# Local database binaries and data
+backend/.pgdata/
+backend/pgsql/
+backend/.env
+
