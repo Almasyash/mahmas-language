@@ -153,6 +153,93 @@ export class AIController {
       next(err);
     }
   }
+
+  // ----------------------------------------------------------------------------
+  // PHASE 6: AI VOICE CALLING
+  // ----------------------------------------------------------------------------
+
+  async initiateVoiceCall(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.userId;
+      const parsed = z.object({
+        characterId: z.string().min(1, 'characterId is required'),
+        topic: z.string().optional(),
+      }).parse(req.body);
+
+      const call = await aiService.initiateVoiceCall(userId, parsed);
+
+      const response: ApiResponse = {
+        success: true,
+        data: { call },
+        meta: { timestamp: new Date().toISOString() },
+      };
+      return res.status(201).json(response);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async processVoiceTurn(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.userId;
+      const callId = req.params.id;
+      const parsed = z.object({
+        audioBase64: z.string().optional(),
+        spokenText: z.string().optional(),
+        audioDurationMs: z.number().int().min(0).optional(),
+      }).parse(req.body);
+
+      const result = await aiService.processVoiceTurn(userId, callId, parsed);
+
+      const response: ApiResponse = {
+        success: true,
+        data: result,
+        meta: { timestamp: new Date().toISOString() },
+      };
+      return res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async endVoiceCall(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.userId;
+      const callId = req.params.id;
+      const parsed = z.object({
+        durationSec: z.number().int().min(0).max(86400).optional(),
+      }).parse(req.body);
+
+      const debrief = await aiService.endVoiceCall(userId, callId, parsed);
+
+      const response: ApiResponse = {
+        success: true,
+        data: { debrief },
+        meta: { timestamp: new Date().toISOString() },
+      };
+      return res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getVoiceCall(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.userId;
+      const callId = req.params.id;
+
+      const call = await aiService.getVoiceCall(userId, callId);
+
+      const response: ApiResponse = {
+        success: true,
+        data: { call },
+        meta: { timestamp: new Date().toISOString() },
+      };
+      return res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const aiController = new AIController();

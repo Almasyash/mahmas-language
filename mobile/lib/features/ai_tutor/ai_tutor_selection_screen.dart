@@ -489,19 +489,40 @@ class _AITutorSelectionScreenState extends State<AITutorSelectionScreen> {
 
                                     const SizedBox(height: 16),
 
-                                    // Action Button
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton.icon(
-                                        onPressed: () => _startChatWithCharacter(character),
-                                        icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                                        label: Text('Chat with ${character.name}'),
-                                        style: ElevatedButton.styleFrom(
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                    // Action Buttons: Chat & Voice Call
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            onPressed: () => _startChatWithCharacter(character),
+                                            icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                                            label: const Text('Chat', style: TextStyle(fontSize: 13)),
+                                            style: ElevatedButton.styleFrom(
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                      ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: FilledButton.tonalIcon(
+                                            onPressed: () {
+                                              Navigator.of(context).pushNamed(
+                                                '/ai-voice-call',
+                                                arguments: character,
+                                              );
+                                            },
+                                            icon: const Icon(Icons.phone_in_talk_rounded, size: 16),
+                                            label: const Text('Voice Call', style: TextStyle(fontSize: 13)),
+                                            style: FilledButton.styleFrom(
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),

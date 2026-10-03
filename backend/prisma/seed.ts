@@ -81,6 +81,13 @@ const initialAchievements = [
     badgeIcon: '🤖',
     maxTier: 1,
   },
+  {
+    code: 'FIRST_AI_VOICE_CALL',
+    title: 'Silver Tongue',
+    description: 'Complete your first live voice call with an AI tutor.',
+    badgeIcon: '🎙️',
+    maxTier: 1,
+  },
 ];
 
 async function main() {
@@ -173,6 +180,17 @@ async function main() {
       targetCount: 1,
       xpReward: 25,
       gemReward: 5,
+      startDate,
+      endDate,
+    },
+    {
+      id: 'quest-ai-voice',
+      title: 'Voice Explorer',
+      description: 'Practice speaking in a live voice call with an AI tutor.',
+      questType: 'AI_VOICE_CALL',
+      targetCount: 1,
+      xpReward: 30,
+      gemReward: 6,
       startDate,
       endDate,
     },

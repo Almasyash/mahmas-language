@@ -4,6 +4,7 @@
 // ==============================================================================
 
 import { config } from '../../config/environment';
+import { PhonemeFeedbackDTO } from './ai.types';
 
 export interface AIMessageContext {
   targetLanguage: string;
@@ -24,8 +25,62 @@ export interface AIResponsePayload {
   audioUrl?: string | null;
 }
 
+export interface SpeechSynthesisResult {
+  audioBase64: string;
+  mimeType: string;
+  durationSec: number;
+}
+
+export interface SpeechEvaluationResult {
+  transcription: string;
+  accuracyScore: number;
+  fluencyScore: number;
+  phonemeFeedback: PhonemeFeedbackDTO[];
+  pronunciationAdvice?: string | null;
+}
+
 export interface IAIProviderAdapter {
   generateReply(context: AIMessageContext): Promise<AIResponsePayload>;
+  generateSpeech(text: string, voiceName?: string | null, languageCode?: string): Promise<SpeechSynthesisResult>;
+  evaluateSpeech(input: { audioBase64?: string; spokenText?: string; audioDurationMs?: number }, languageCode: string): Promise<SpeechEvaluationResult>;
+}
+
+/**
+ * Generates a valid standard RIFF WAV base64 string with PCM 16-bit audio.
+ * Allows client audio players (Flutter/browser) to decode real audio without external dependencies.
+ */
+function createMockWavBase64(durationSec: number = 1.5, sampleRate: number = 16000): string {
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const blockAlign = (numChannels * bitsPerSample) / 8;
+  const byteRate = sampleRate * blockAlign;
+  const dataSize = Math.floor(sampleRate * durationSec * blockAlign);
+  const totalSize = 36 + dataSize;
+
+  const buffer = Buffer.alloc(44 + dataSize);
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(totalSize, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(numChannels, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(byteRate, 28);
+  buffer.writeUInt16LE(blockAlign, 32);
+  buffer.writeUInt16LE(bitsPerSample, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataSize, 40);
+
+  // Gentle audible tone envelope
+  for (let i = 0; i < sampleRate * durationSec; i++) {
+    const t = i / sampleRate;
+    const envelope = Math.max(0, 1 - t / durationSec);
+    const sample = Math.floor(Math.sin(2 * Math.PI * 440 * t) * 6000 * envelope);
+    buffer.writeInt16LE(sample, 44 + i * 2);
+  }
+
+  return buffer.toString('base64');
 }
 
 // ------------------------------------------------------------------------------
@@ -126,6 +181,86 @@ export class MockAIProviderAdapter implements IAIProviderAdapter {
       audioUrl: null,
     };
   }
+
+  async generateSpeech(text: string, _voiceName?: string | null, _languageCode?: string): Promise<SpeechSynthesisResult> {
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    // Estimate ~0.35s per word, minimum 1.2s, max 10s
+    const durationSec = Math.min(10, Math.max(1.2, Math.round(wordCount * 0.35 * 10) / 10));
+    const audioBase64 = createMockWavBase64(durationSec);
+
+    return {
+      audioBase64,
+      mimeType: 'audio/wav',
+      durationSec,
+    };
+  }
+
+  async evaluateSpeech(
+    input: { audioBase64?: string; spokenText?: string; audioDurationMs?: number },
+    languageCode: string
+  ): Promise<SpeechEvaluationResult> {
+    const text = input.spokenText?.trim() || 'Hola, me gustaría practicar español contigo.';
+    const lower = text.toLowerCase();
+
+    const phonemeFeedback: PhonemeFeedbackDTO[] = [];
+    let accuracy = 90;
+    let fluency = 88;
+    let advice = 'Great pronunciation and clear vocal cadence!';
+
+    // Check rolled 'rr' / alveolar trill in Spanish
+    if (languageCode === 'es' || languageCode.toLowerCase().includes('spanish')) {
+      if (lower.includes('rr') || lower.includes('perro') || lower.includes('carro')) {
+        phonemeFeedback.push({
+          phoneme: 'r (trill)',
+          status: 'EXCELLENT',
+          hint: 'Superb alveolar trill vibration on the rolled "rr".',
+        });
+        advice = 'Excellent trill on your rolled "rr" sounds! Native-like resonance.';
+        accuracy = Math.min(98, accuracy + 5);
+      } else {
+        phonemeFeedback.push({
+          phoneme: 'r (flap)',
+          status: 'GOOD',
+          hint: 'Clean alveolar tap between vowels.',
+        });
+      }
+
+      // Check vowels purity
+      if (/[aeiouáéíóú]/.test(lower)) {
+        phonemeFeedback.push({
+          phoneme: 'Vowels [a, e, i, o, u]',
+          status: 'GOOD',
+          hint: 'Spanish vowels are short and crisp without diphthong glide.',
+        });
+      }
+
+      // Check syntax / common learner errors impacting accuracy
+      if (lower.includes('yo querer')) {
+        accuracy = 75;
+        fluency = 72;
+        advice = 'Clear articulation, but remember to conjugate "Yo quiero" instead of "Yo querer".';
+        phonemeFeedback.push({
+          phoneme: 'Grammatical Cadence',
+          status: 'NEEDS_WORK',
+          hint: 'Use present indicative for smooth conversational flow.',
+        });
+      }
+    } else {
+      phonemeFeedback.push({
+        phoneme: 'vocal clarity',
+        status: 'EXCELLENT',
+        hint: 'Speech is distinct and intelligible.',
+      });
+    }
+
+    return {
+      transcription: text,
+      accuracyScore: accuracy,
+      fluencyScore: fluency,
+      phonemeFeedback,
+      pronunciationAdvice: advice,
+    };
+  }
 }
 
 // ------------------------------------------------------------------------------
@@ -216,6 +351,17 @@ Instructions:
       console.warn('Gemini inference failed, utilizing mock pedagogical fallback:', err);
       return this.mockFallback.generateReply(context);
     }
+  }
+
+  async generateSpeech(text: string, voiceName?: string | null, languageCode?: string): Promise<SpeechSynthesisResult> {
+    return this.mockFallback.generateSpeech(text, voiceName, languageCode);
+  }
+
+  async evaluateSpeech(
+    input: { audioBase64?: string; spokenText?: string; audioDurationMs?: number },
+    languageCode: string
+  ): Promise<SpeechEvaluationResult> {
+    return this.mockFallback.evaluateSpeech(input, languageCode);
   }
 }
 

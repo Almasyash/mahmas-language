@@ -21,4 +21,10 @@ router.get('/conversations/:id', (req, res, next) => aiController.getConversatio
 router.post('/conversations/:id/messages', (req, res, next) => aiController.sendMessage(req, res, next));
 router.post('/conversations/:id/end', (req, res, next) => aiController.endConversation(req, res, next));
 
+// Live Voice Calls (Phase 6)
+router.post('/calls/initiate', (req, res, next) => aiController.initiateVoiceCall(req, res, next));
+router.post('/calls/:id/turn', (req, res, next) => aiController.processVoiceTurn(req, res, next));
+router.post('/calls/:id/end', (req, res, next) => aiController.endVoiceCall(req, res, next));
+router.get('/calls/:id', (req, res, next) => aiController.getVoiceCall(req, res, next));
+
 export default router;

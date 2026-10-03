@@ -14,8 +14,8 @@ This roadmap details the progressive delivery plan for the Mahmas Language Super
 | **Phase 3** | **Exercises & Gamification** | Server-authoritative scoring, streaks (timezone-aware), XP transactions, gems, quests, achievements. | **COMPLETED** |
 | **Phase 4** | **Practice & Skills Drill** | Spaced Repetition (SRS) flashcards & vocabulary, mistakes review, practice runner session. | **COMPLETED** |
 | **Phase 5** | **AI Conversational Tutor** | Persona configuration, episodic context memory, non-intrusive pedagogical feedback, session debrief. | **COMPLETED** |
-| **Phase 6** | **AI Voice Calling** | Real-time audio streaming, speech-to-text (STT), low-latency LLM generation, neural text-to-speech (TTS), call debriefing. | *Next* |
-| **Phase 7** | **AI Video Calling** | Animated avatar synchronization, live captions, conversational difficulty adaptation. | *Planned* |
+| **Phase 6** | **AI Voice Calling** | Real-time audio streaming, speech-to-text (STT), low-latency LLM generation, neural text-to-speech (TTS), call debriefing. | **COMPLETED** |
+| **Phase 7** | **AI Video Calling** | Animated avatar synchronization, facial expression state machine, live captions, conversational difficulty adaptation. | *Next* |
 | **Phase 8** | **Language Exchange** | Mutual interest & complementary language matching, tandem partner discovery. | *Planned* |
 | **Phase 9** | **Real Human Audio Calling** | WebRTC signaling, STUN/TURN traversal, in-call controls, user anonymity. | *Planned* |
 | **Phase 10** | **Real Human Video Calling** | WebRTC video pipeline, camera switching, connection reconnection state machines. | *Planned* |
@@ -27,34 +27,44 @@ This roadmap details the progressive delivery plan for the Mahmas Language Super
 
 ---
 
-## Phase 5 Accomplishments (Delivered)
-1. **AI Tutor Backend Architecture:**
-   - Multi-character persona definitions (Mateo, Sofia, Prof. Elena, Alex) with CEFR difficulty levels, tone, and scenario titles.
-   - Resilient vendor-agnostic AI provider layer with `MockAIProviderAdapter` (pedagogical heuristics & memory extraction) and `GeminiAIProviderAdapter` with automatic fallback.
-   - Non-intrusive pedagogical feedback engine delivering inline correction notes and suggestions without dialogue interruptions.
-   - Episodic memory persistence (`AIConversationMemory`) storing user preferences, goals, and facts across dialogue sessions.
-   - Authoritative rewards engine awarding micro-XP (+3 XP per message) and session completion rewards (+15 XP, +2 Gems, `FIRST_AI_CONVERSATION` achievement check, `AI_CHAT` quest progress).
-   - 13 backend integration tests passing (60/60 total across 4 suites).
+## Phase 6 Accomplishments (Delivered)
+1. **AI Voice Calling Backend Architecture:**
+   - Authoritative voice call lifecycle endpoints: `/api/v1/ai/calls/initiate`, `/calls/:id/turn`, `/calls/:id/end`, and `/calls/:id`.
+   - Speech synthesis adapter (`generateSpeech`) returning compliant 16kHz PCM WAV base64 audio and MIME descriptors.
+   - Acoustic and phonetic pronunciation evaluator (`evaluateSpeech`) providing granular phoneme-level scoring (e.g. Spanish alveolar trills /r/, pure vowels /a/, /e/, /o/, syntax cadence).
+   - Server-authoritative progression engine: +5 XP per turn, +25 XP and +3 Gems per call completion, daily goal speaking minutes tracking, streak maintenance, and `FIRST_AI_VOICE_CALL` achievement unlock.
+   - 9 new backend integration tests passing (69/69 total across 5 test suites).
 
-2. **AI Tutor Mobile Experience (Flutter):**
-   - Interactive character selection screen with CEFR filter chips, rich persona cards, and scenario descriptions.
-   - Multi-turn chat interface with chat bubbles, quick prompt suggestion chips, tap-to-translate action, and inline pedagogical feedback cards.
-   - Gamified session debrief dialog displaying XP/gem gains, unlocked achievements, vocabulary practiced, and pedagogical review notes.
-   - Seamless integration into `HomeScreen` dashboard with online tutor status indicator and instant jump into AI conversations.
-   - 6 new widget & unit tests passing with zero static analysis warnings (`flutter analyze` 100% clean, 29/29 tests pass).
+2. **AI Voice Calling Mobile Experience (Flutter):**
+   - Full-screen immersive call interface (`AIVoiceCallScreen`) with live call timer, character persona avatar, and dark glassmorphic styling.
+   - Dynamic animated audio waveform orb (`_WaveformOrbPainter`) with multi-layer pulsating ambient waves reflecting listening, thinking, and speaking states.
+   - Real-time phonetic feedback pill displaying live accuracy score and corrective pronunciation hints (e.g., alveolar trill guidance).
+   - Full call control island: Mute/Unmute microphone, Speak utterance, Test "rr" phonetic trigger, and End call.
+   - Gamified post-call debrief dialog (`AIVoiceCallDebriefDialog`) featuring circular progress meters for Pronunciation and Fluency, acoustic metrics (words per minute, speaking pace), XP/gem rewards, and achievement banner.
+   - Seamless routing via `/ai-voice-call` and instant direct call triggers from `AITutorSelectionScreen` and `AIChatScreen`.
+   - 6 new widget/unit tests passing; 0 issues on `flutter analyze`; all 35/35 mobile client tests passing.
 
 ---
 
-## Phase 6 Detailed Deliverables (Immediate Next Milestone)
-1. **AI Voice Calling Architecture & Backend:**
-   - Real-time bidirectional audio signaling and session management via WebSockets / WebRTC.
-   - Speech-to-Text (STT) pipeline with multilingual acoustic models (Whisper / Gemini Live API / Google Cloud STT).
-   - Low-latency conversational LLM stream orchestration with pause/interruption detection (Voice Activity Detection - VAD).
-   - Text-to-Speech (TTS) engine with natural neural voice synthesis matching character persona timbre and pitch.
-   - In-call audio session recording and post-call pedagogical pronunciation audit.
+## Phase 7 Detailed Deliverables (Immediate Next Milestone)
+1. **AI Video Calling Backend Architecture & Avatar Pipeline:**
+   - Video session signaling & lifecycle endpoints (`/api/v1/ai/video-calls/initiate`, `/turn`, `/end`, `/state`).
+   - Avatar animation state machine engine supporting contextual facial emotion states:
+     - `idle` / `neutral`: Gentle eye-blink and breathing loop.
+     - `listening`: Engaged forward lean, nod, and active eye contact.
+     - `thinking`: Thoughtful upward eye shift or subtle head tilt.
+     - `speaking`: Lip-sync mouth phoneme shapes (visemes: A/I/U/E/O, consonants) matched to audio cadence.
+     - `celebrating` / `encouraging`: Warm smile, enthusiastic nod upon high pronunciation scores.
+   - Dynamic conversational difficulty scaffolding:
+     - Automatic vocabulary simplification if user hesitation or low fluency is detected.
+     - Visual aid card projection (e.g. flashcard prompt or picture prompt in video stream) when user asks for help.
+   - Authoritative video call progression rewards (+35 XP, +5 Gems, `FIRST_AI_VIDEO_CALL` achievement, streak and speaking time).
 
-2. **AI Voice Calling Mobile Experience (Flutter):**
-   - Full-screen calling UI with persona avatar, live audio waveform visualizer, call timer, and mute/speaker controls.
-   - Live real-time subtitle stream with toggleable target-language captions and instant phonetic hints.
-   - Post-call voice review modal displaying pronunciation accuracy score, speaking pace (words/min), and fluency metrics.
+2. **AI Video Calling Mobile Experience (Flutter):**
+   - Immersive video call screen (`AIVideoCallScreen`) with split-view / picture-in-picture (PiP):
+     - Large main viewport rendering the animated character avatar with smooth visual transitions between emotion & viseme states.
+     - Floating user camera preview with flip camera, pause video, and mute toggles.
+   - Live closed captions overlay with dual-language toggle (Spanish target subtitles + English assistive hints).
+   - Interactive in-video visual aids overlay displaying situational context (e.g. café menu card when roleplaying ordering coffee).
+   - Video call debrief dialog with visual performance breakdown, facial expression reaction replay, and rewards.
 

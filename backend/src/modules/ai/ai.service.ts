@@ -12,6 +12,12 @@ import {
   AIConversationDTO,
   AIMessageDTO,
   ConversationDebriefDTO,
+  AIVoiceCallDTO,
+  InitiateVoiceCallInput,
+  VoiceTurnInput,
+  VoiceTurnResponseDTO,
+  EndVoiceCallInput,
+  VoiceCallDebriefDTO,
 } from './ai.types';
 import { xpService } from '../progression/xp.service';
 import { currencyService } from '../progression/currency.service';
@@ -428,6 +434,415 @@ export class AIService {
       feedbackSummary: correctionsCount === 0
         ? '¡Excelente fluidez y vocabulario! Mantuviste una conversación natural sin errores notables.'
         : `Gran práctica activa. Recibiste ${correctionsCount} sugerencia(s) pedagógica(s) para pulir tu precisión gramatical.`,
+    };
+  }
+
+  // ----------------------------------------------------------------------------
+  // PHASE 6: AI VOICE CALLING
+  // ----------------------------------------------------------------------------
+
+  private activeVoiceCalls = new Map<string, {
+    callId: string;
+    userId: string;
+    characterId: string;
+    conversationId: string;
+    startedAt: Date;
+    endedAt?: Date;
+    turnCount: number;
+    accumulatedAccuracy: number;
+    accumulatedFluency: number;
+    wordsSpokenEstimate: number;
+    greetingText: string;
+    greetingAudioBase64: string;
+    audioMimeType: string;
+    status: 'CONNECTING' | 'CONNECTED' | 'ENDED';
+  }>();
+
+  /**
+   * Initiates a live AI voice call session with the chosen character.
+   * Creates underlying conversation, synthesizes spoken greeting, and returns call metadata.
+   */
+  async initiateVoiceCall(userId: string, input: InitiateVoiceCallInput): Promise<AIVoiceCallDTO> {
+    const character = await prisma.aICharacter.findUnique({
+      where: { id: input.characterId },
+    });
+
+    if (!character || !character.isActive) {
+      throw new NotFoundError('AI Character not found or inactive');
+    }
+
+    const topic = input.topic || 'Práctica de pronunciación y conversación fluida';
+
+    // 1. Create underlying conversation entity
+    const conversation = await prisma.aIConversation.create({
+      data: {
+        userId,
+        characterId: character.id,
+        topic,
+      },
+      include: {
+        character: true,
+      },
+    });
+
+    const callId = `call-${conversation.id}`;
+
+    // 2. Generate persona-aligned voice greeting
+    let greetingText = `¡Hola! Me alegro mucho de hablar contigo por llamada. Te escucho perfectamente. ¿Cómo estás hoy?`;
+    if (character.name.includes('Mateo')) {
+      greetingText = `¡Hola amigo! Bienvenido al café. Te escucho alto y claro. ¿Qué te gustaría tomar hoy o de qué te apetece charlar?`;
+    } else if (character.name.includes('Elena')) {
+      greetingText = `¡Buenos días! Es un verdadero placer saludarte por voz. Estoy lista para conversar y ayudarte con tu pronunciación y fluidez. ¿De qué tema hablaremos hoy?`;
+    } else if (character.name.includes('Sofia')) {
+      greetingText = `¡Hola viajero! Qué alegría conectar contigo por llamada. Cuéntame, ¿qué tal tu día y qué aventuras tienes en mente?`;
+    } else if (character.name.includes('Alex')) {
+      greetingText = `¡Hola! Me alegro de saludarte. La llamada suena perfecta. ¿Cómo va tu día y tus proyectos tecnológicos?`;
+    }
+
+    // 3. Synthesize speech for the greeting
+    const speechResult = await this.aiProvider.generateSpeech(
+      greetingText,
+      character.defaultVoice,
+      character.targetLanguageCode
+    );
+
+    // 4. Save greeting as first message in DB
+    await prisma.aIMessage.create({
+      data: {
+        conversationId: conversation.id,
+        senderRole: 'ASSISTANT',
+        content: greetingText,
+      },
+    });
+
+    // 5. Store active call state
+    const sessionState = {
+      callId,
+      userId,
+      characterId: character.id,
+      conversationId: conversation.id,
+      startedAt: new Date(),
+      turnCount: 0,
+      accumulatedAccuracy: 0,
+      accumulatedFluency: 0,
+      wordsSpokenEstimate: 0,
+      greetingText,
+      greetingAudioBase64: speechResult.audioBase64,
+      audioMimeType: speechResult.mimeType,
+      status: 'CONNECTED' as const,
+    };
+    this.activeVoiceCalls.set(callId, sessionState);
+
+    const characterDto = this.mapCharacterToDto(character);
+
+    return {
+      id: callId,
+      conversationId: conversation.id,
+      characterId: character.id,
+      character: characterDto,
+      status: 'CONNECTED',
+      startedAt: sessionState.startedAt.toISOString(),
+      endedAt: null,
+      durationSec: 0,
+      turnCount: 0,
+      greetingText,
+      greetingAudioBase64: speechResult.audioBase64,
+      audioMimeType: speechResult.mimeType,
+      audioStreamEndpoint: `/api/v1/ai/calls/${callId}/stream`,
+    };
+  }
+
+  /**
+   * Processes a spoken user turn: transcribes, grades pronunciation & fluency, generates AI reply and voice audio.
+   */
+  async processVoiceTurn(userId: string, callId: string, input: VoiceTurnInput): Promise<VoiceTurnResponseDTO> {
+    const session = this.activeVoiceCalls.get(callId);
+    if (!session || session.userId !== userId || session.status === 'ENDED') {
+      throw new NotFoundError('Active voice call session not found');
+    }
+
+    const character = await prisma.aICharacter.findUnique({
+      where: { id: session.characterId },
+    });
+    if (!character) {
+      throw new NotFoundError('Character associated with call not found');
+    }
+
+    // 1. Evaluate speech acoustic & phonetic features
+    const evalResult = await this.aiProvider.evaluateSpeech(
+      {
+        audioBase64: input.audioBase64,
+        spokenText: input.spokenText,
+        audioDurationMs: input.audioDurationMs,
+      },
+      character.targetLanguageCode
+    );
+
+    const userText = evalResult.transcription;
+
+    // 2. Persist user spoken utterance in database
+    await prisma.aIMessage.create({
+      data: {
+        conversationId: session.conversationId,
+        senderRole: 'USER',
+        content: userText,
+      },
+    });
+
+    // 3. Retrieve conversational context
+    const conversation = await prisma.aIConversation.findUnique({
+      where: { id: session.conversationId },
+      include: {
+        messages: { orderBy: { createdAt: 'asc' }, take: 15 },
+        memories: true,
+      },
+    });
+
+    const history = (conversation?.messages || []).map((m) => ({
+      role: m.senderRole.toLowerCase() as 'user' | 'assistant',
+      content: m.content,
+    }));
+
+    const memories = (conversation?.memories || []).map((m) => ({
+      key: m.memoryKey,
+      value: m.memoryValue,
+    }));
+
+    // 4. Generate conversational reply
+    const replyResult = await this.aiProvider.generateReply({
+      targetLanguage: character.targetLanguageCode,
+      nativeLanguage: 'en',
+      cefrLevel: character.difficultyCEFR,
+      characterName: character.name,
+      personalityPrompt: character.personalityPrompt,
+      topic: conversation?.topic || undefined,
+      memories,
+      history,
+      latestUserMessage: userText,
+    });
+
+    // 5. Store new memories if extracted
+    if (replyResult.newMemories && replyResult.newMemories.length > 0) {
+      for (const mem of replyResult.newMemories) {
+        await prisma.aIConversationMemory.create({
+          data: {
+            conversationId: session.conversationId,
+            memoryKey: mem.key,
+            memoryValue: mem.value,
+          },
+        });
+      }
+    }
+
+    // 6. Synthesize assistant reply audio
+    const speechResult = await this.aiProvider.generateSpeech(
+      replyResult.reply,
+      character.defaultVoice,
+      character.targetLanguageCode
+    );
+
+    // 7. Persist assistant message with pedagogical note
+    await prisma.aIMessage.create({
+      data: {
+        conversationId: session.conversationId,
+        senderRole: 'ASSISTANT',
+        content: replyResult.reply,
+        correctionNote: replyResult.correctionNote,
+      },
+    });
+
+    // 8. Update session metrics
+    session.turnCount += 1;
+    session.accumulatedAccuracy += evalResult.accuracyScore;
+    session.accumulatedFluency += evalResult.fluencyScore;
+    const wordsCount = userText.split(/\s+/).filter(Boolean).length;
+    session.wordsSpokenEstimate += wordsCount;
+
+    // 9. Award speaking micro-XP (+5 XP per spoken turn)
+    const xpAwarded = 5;
+    await xpService.awardXp({
+      userId,
+      amount: xpAwarded,
+      reason: 'AI_VOICE_TURN',
+      idempotencyKey: `ai_vturn:${callId}:${session.turnCount}`,
+      referenceId: callId,
+    });
+
+    return {
+      turnIndex: session.turnCount,
+      userTranscription: userText,
+      pronunciationScore: evalResult.accuracyScore,
+      fluencyScore: evalResult.fluencyScore,
+      phonemeFeedback: evalResult.phonemeFeedback,
+      assistantReply: replyResult.reply,
+      assistantAudioBase64: speechResult.audioBase64,
+      audioMimeType: speechResult.mimeType,
+      correctionNote: replyResult.correctionNote,
+      pronunciationAdvice: evalResult.pronunciationAdvice,
+      xpAwarded,
+      totalTurns: session.turnCount,
+    };
+  }
+
+  /**
+   * Concludes the live voice call session and generates gamified pronunciation & fluency debrief.
+   */
+  async endVoiceCall(userId: string, callId: string, input: EndVoiceCallInput): Promise<VoiceCallDebriefDTO> {
+    const session = this.activeVoiceCalls.get(callId);
+    if (!session || session.userId !== userId) {
+      throw new NotFoundError('Voice call session not found');
+    }
+
+    session.status = 'ENDED';
+    const endedAt = new Date();
+    session.endedAt = endedAt;
+
+    const character = await prisma.aICharacter.findUnique({
+      where: { id: session.characterId },
+    });
+    if (!character) {
+      throw new NotFoundError('Character not found');
+    }
+
+    // 1. Calculate duration
+    let durationSec = input.durationSec;
+    if (!durationSec || durationSec <= 0) {
+      durationSec = Math.max(15, Math.round((endedAt.getTime() - session.startedAt.getTime()) / 1000));
+    }
+
+    // 2. Mark conversation ended in DB
+    await prisma.aIConversation.update({
+      where: { id: session.conversationId },
+      data: { endedAt },
+    });
+
+    // 3. Compute aggregate scores
+    const turns = session.turnCount;
+    const overallAccuracy = turns > 0 ? Math.round(session.accumulatedAccuracy / turns) : 88;
+    const overallFluency = turns > 0 ? Math.round(session.accumulatedFluency / turns) : 85;
+    const wordsSpoken = session.wordsSpokenEstimate > 0 ? session.wordsSpokenEstimate : Math.max(12, turns * 7);
+    const wordsPerMinute = Math.min(180, Math.round((wordsSpoken / Math.max(10, durationSec)) * 60));
+
+    // 4. Award authoritative completion rewards (+25 XP, +3 Gems)
+    const xpAwarded = 25;
+    const gemsAwarded = 3;
+
+    await xpService.awardXp({
+      userId,
+      amount: xpAwarded,
+      reason: 'AI_VOICE_CALL_COMPLETED',
+      idempotencyKey: `ai_voice_complete:${callId}`,
+      referenceId: callId,
+    });
+
+    await currencyService.credit({
+      userId,
+      amount: gemsAwarded,
+      reason: 'AI_VOICE_CALL_REWARD',
+      idempotencyKey: `ai_voice_gems:${callId}`,
+      referenceId: callId,
+    });
+
+    // 5. Unlock FIRST_AI_VOICE_CALL achievement
+    const unlockedAchievements: string[] = [];
+    const ach = await achievementsService.unlockAchievement(userId, 'FIRST_AI_VOICE_CALL');
+    if (ach) {
+      unlockedAchievements.push(ach.code);
+    }
+
+    // 6. Update Quests & Streak
+    await questsService.recordQuestProgress(userId, 'AI_VOICE_CALL', 1);
+    await questsService.recordQuestProgress(userId, 'EARN_XP', xpAwarded);
+    await streakService.recordActivity(userId);
+    const minutesSpent = Math.max(1, Math.ceil(durationSec / 60));
+    await dailyGoalService.recordActivityTime(userId, minutesSpent);
+
+    // 7. Generate pronunciation highlights
+    const pronunciationHighlights: string[] = [];
+    if (overallAccuracy >= 90) {
+      pronunciationHighlights.push('Superb vowel clarity and native-like rhythm.');
+      pronunciationHighlights.push('Accurate syllable stress in Spanish phrasing.');
+    } else {
+      pronunciationHighlights.push('Good vocal projection with steady cadence.');
+      pronunciationHighlights.push('Focus on rolling the alveolar "rr" and pure vowels.');
+    }
+
+    const feedbackSummary = overallAccuracy >= 90
+      ? `¡Brillante llamada con ${character.name}! Tu fluidez alcanzó ${wordsPerMinute} palabras por minuto con una pronunciación sobresaliente.`
+      : `¡Excelente llamada de práctica con ${character.name}! Completaste ${turns} turno(s) de conversación oral activa.`;
+
+    return {
+      callId,
+      characterName: character.name,
+      totalDurationSec: durationSec,
+      turnsCompleted: turns,
+      overallAccuracy,
+      overallFluency,
+      wordsSpokenEstimate: wordsSpoken,
+      wordsPerMinute,
+      xpAwarded,
+      gemsAwarded,
+      unlockedAchievements,
+      pronunciationHighlights,
+      feedbackSummary,
+    };
+  }
+
+  /**
+   * Retrieves active or completed voice call session state.
+   */
+  async getVoiceCall(userId: string, callId: string): Promise<AIVoiceCallDTO> {
+    const session = this.activeVoiceCalls.get(callId);
+    if (!session || session.userId !== userId) {
+      const conversationId = callId.replace(/^call-/, '');
+      const conv = await prisma.aIConversation.findUnique({
+        where: { id: conversationId },
+        include: { character: true, messages: true },
+      });
+      if (!conv || conv.userId !== userId) {
+        throw new NotFoundError('Voice call not found');
+      }
+
+      return {
+        id: callId,
+        conversationId: conv.id,
+        characterId: conv.characterId,
+        character: this.mapCharacterToDto(conv.character),
+        status: conv.endedAt ? 'ENDED' : 'CONNECTED',
+        startedAt: conv.startedAt.toISOString(),
+        endedAt: conv.endedAt?.toISOString() || null,
+        durationSec: conv.endedAt
+          ? Math.round((conv.endedAt.getTime() - conv.startedAt.getTime()) / 1000)
+          : 0,
+        turnCount: conv.messages.filter((m) => m.senderRole === 'USER').length,
+        greetingText: conv.messages[0]?.content || '¡Hola!',
+        greetingAudioBase64: undefined,
+        audioMimeType: 'audio/wav',
+      };
+    }
+
+    const character = await prisma.aICharacter.findUnique({
+      where: { id: session.characterId },
+    });
+    if (!character) {
+      throw new NotFoundError('Character not found');
+    }
+
+    return {
+      id: callId,
+      conversationId: session.conversationId,
+      characterId: session.characterId,
+      character: this.mapCharacterToDto(character),
+      status: session.status,
+      startedAt: session.startedAt.toISOString(),
+      endedAt: session.endedAt?.toISOString() || null,
+      durationSec: session.endedAt
+        ? Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 1000)
+        : Math.round((Date.now() - session.startedAt.getTime()) / 1000),
+      turnCount: session.turnCount,
+      greetingText: session.greetingText,
+      greetingAudioBase64: session.greetingAudioBase64,
+      audioMimeType: session.audioMimeType,
     };
   }
 

@@ -258,6 +258,16 @@ class _AIChatScreenState extends State<AIChatScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.phone_in_talk_rounded, color: Colors.teal),
+            tooltip: 'Live Voice Call',
+            onPressed: () {
+              Navigator.of(context).pushNamed(
+                '/ai-voice-call',
+                arguments: character,
+              );
+            },
+          ),
           TextButton.icon(
             onPressed: _endSession,
             icon: const Icon(Icons.check_circle_outline, size: 16),
