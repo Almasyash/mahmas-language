@@ -10,6 +10,7 @@ import { achievementsService } from './achievements.service';
 import { xpService } from './xp.service';
 import { streakService } from './streak.service';
 import { dailyGoalService } from './daily-goal.service';
+import { currencyService } from './currency.service';
 import { ApiResponse } from '../../common/types';
 
 export class ProgressionController {
@@ -123,6 +124,21 @@ export class ProgressionController {
       const response: ApiResponse = {
         success: true,
         data,
+      };
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getCurrency(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const gems = await currencyService.getBalance(userId);
+
+      const response: ApiResponse = {
+        success: true,
+        data: { gems },
       };
       res.status(200).json(response);
     } catch (error) {

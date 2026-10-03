@@ -74,6 +74,13 @@ const initialAchievements = [
     badgeIcon: '🧭',
     maxTier: 1,
   },
+  {
+    code: 'FIRST_AI_CONVERSATION',
+    title: 'AI Conversationalist',
+    description: 'Complete your first conversation session with an AI tutor.',
+    badgeIcon: '🤖',
+    maxTier: 1,
+  },
 ];
 
 async function main() {
@@ -158,6 +165,17 @@ async function main() {
       startDate,
       endDate,
     },
+    {
+      id: 'quest-ai-chat',
+      title: 'Chat with an AI Tutor',
+      description: 'Practice conversational skills with your AI tutor.',
+      questType: 'AI_CHAT',
+      targetCount: 1,
+      xpReward: 25,
+      gemReward: 5,
+      startDate,
+      endDate,
+    },
   ];
 
   for (const quest of initialQuests) {
@@ -168,6 +186,60 @@ async function main() {
     });
   }
   console.log(`Seeded ${initialQuests.length} quests successfully.`);
+
+  // Seed AI Tutor Characters
+  console.log('Seeding AI Tutor Characters...');
+  const initialCharacters = [
+    {
+      id: 'char-mateo',
+      name: 'Mateo',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Mateo, a friendly, warm, and patient barista in Madrid. You speak Spanish at a beginner-friendly A1-A2 level. You enjoy talking about coffee, daily routines, food, and introducing newcomers to Spanish with encouraging phrases.',
+      defaultVoice: 'es-ES-Neural2-A',
+      targetLanguageCode: 'es',
+      difficultyCEFR: CEFRLevel.A1,
+      isActive: true,
+    },
+    {
+      id: 'char-elena',
+      name: 'Prof. Elena',
+      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Professor Elena, an articulate and encouraging Spanish linguistics professor. You converse in clear, structured Spanish (B1-B2 level), offering thoughtful explanations and rich conversation about culture, history, and literature.',
+      defaultVoice: 'es-ES-Neural2-F',
+      targetLanguageCode: 'es',
+      difficultyCEFR: CEFRLevel.B1,
+      isActive: true,
+    },
+    {
+      id: 'char-sofia',
+      name: 'Sofia',
+      avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Sofia, an energetic backpacker and photographer exploring Latin America. You talk about travel, adventures, asking for directions, ordering street food, and making friends in lively conversational Spanish (A2 level).',
+      defaultVoice: 'es-MX-Neural2-A',
+      targetLanguageCode: 'es',
+      difficultyCEFR: CEFRLevel.A2,
+      isActive: true,
+    },
+    {
+      id: 'char-alex',
+      name: 'Alex',
+      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Alex, a bilingual software architect in Valencia. You speak modern Spanish (B2 level) about technology, startups, career, and daily work life, helping learners master fluent professional dialogue.',
+      defaultVoice: 'es-ES-Neural2-B',
+      targetLanguageCode: 'es',
+      difficultyCEFR: CEFRLevel.B2,
+      isActive: true,
+    },
+  ];
+
+  for (const char of initialCharacters) {
+    await prisma.aICharacter.upsert({
+      where: { id: char.id },
+      update: char,
+      create: char,
+    });
+  }
+  console.log(`Seeded ${initialCharacters.length} AI characters successfully.`);
 
   // Seed Spanish Course, Units, Lessons & Exercises
   console.log('Seeding Spanish Foundations Course...');

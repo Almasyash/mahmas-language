@@ -12,6 +12,7 @@ import coursesRoutes from './modules/courses/courses.routes';
 import lessonsRoutes from './modules/lessons/lessons.routes';
 import practiceRoutes from './modules/practice/practice.routes';
 import progressionRoutes from './modules/progression/progression.routes';
+import aiRoutes from './modules/ai/ai.routes';
 
 export const createApp = (): Application => {
   const app = express();
@@ -73,6 +74,7 @@ export const createApp = (): Application => {
   app.use('/api/v1/progression', progressionRoutes);
   app.use('/api/v1/quests', progressionRoutes);
   app.use('/api/v1/achievements', progressionRoutes);
+  app.use('/api/v1/ai', aiRoutes);
 
   // Centralized Error Handling
   app.use(errorHandler);

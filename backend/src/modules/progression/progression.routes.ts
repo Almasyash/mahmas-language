@@ -19,5 +19,6 @@ router.get('/daily-goal', (req, res, next) => progressionController.getDailyGoal
 router.get('/quests', (req, res, next) => progressionController.getQuests(req, res, next));
 router.post('/quests/:questId/claim', (req, res, next) => progressionController.claimQuest(req, res, next));
 router.get('/achievements', (req, res, next) => progressionController.getAchievements(req, res, next));
+router.get('/currency', (req, res, next) => progressionController.getCurrency(req, res, next));
 
 export default router;

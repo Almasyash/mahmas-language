@@ -10,6 +10,7 @@ import '../../features/practice/practice_runner_screen.dart';
 import '../../features/practice/practice_screen.dart';
 import '../../features/practice/vocabulary_review_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/ai_tutor/ai_tutor_selection_screen.dart';
 
 class AppRouter {
   static const String root = '/';
@@ -59,6 +60,8 @@ class AppRouter {
             lessonTitle: args['lessonTitle'] as String? ?? 'Lesson',
           ),
         );
+      case aiTutor:
+        return MaterialPageRoute(builder: (_) => const AITutorSelectionScreen());
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(
