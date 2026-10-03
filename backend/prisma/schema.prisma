@@ -114,6 +114,25 @@ enum CurrencyType {
   HEARTS
 }
 
+enum VocabularyStatus {
+  NEW
+  LEARNING
+  REVIEW
+  MASTERED
+}
+
+enum PracticeSessionStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+enum PracticeSessionType {
+  RECOMMENDED
+  MISTAKES
+  VOCABULARY
+}
+
 // ------------------------------------------------------------------------------
 // CORE USER & AUTHENTICATION
 // ------------------------------------------------------------------------------
@@ -158,6 +177,11 @@ model User {
   payments             Payment[]
   callReports          CallReport[]
   leaderboardEntries   Leaderboard[]
+  practiceSessions     PracticeSession[]
+  userAchievements     UserAchievement[]
+  userQuests           UserQuest[]
+  currencyLedgers      CurrencyLedger[]
+  mistakes             Mistake[]
 
   @@index([email])
   @@index([role])
@@ -370,17 +394,22 @@ model VocabularyWord {
 }
 
 model UserVocabulary {
-  id             String         @id @default(uuid())
+  id             String           @id @default(uuid())
   userId         String
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   wordId         String
-  word           VocabularyWord @relation(fields: [wordId], references: [id], onDelete: Cascade)
-  strength       Int            @default(1) // SRS Strength 1-5
-  nextReviewAt   DateTime       @default(now())
+  word           VocabularyWord   @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  status         VocabularyStatus @default(NEW)
+  exposureCount  Int              @default(0)
+  correctCount   Int              @default(0)
+  incorrectCount Int              @default(0)
+  confidence     Float            @default(0.0)
+  strength       Int              @default(1) // SRS Strength 1-5
+  nextReviewAt   DateTime         @default(now())
   lastReviewedAt DateTime?
-  repetitions    Int            @default(0)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  repetitions    Int              @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@unique([userId, wordId])
   @@index([userId, nextReviewAt])
@@ -427,17 +456,47 @@ model LessonAttempt {
 }
 
 model Mistake {
-  id              String         @id @default(uuid())
-  lessonAttemptId String?
-  lessonAttempt   LessonAttempt? @relation(fields: [lessonAttemptId], references: [id], onDelete: Cascade)
-  exerciseId      String
-  exercise        Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  userGivenAnswer String         @db.Text
-  isResolved      Boolean        @default(false)
-  resolvedAt      DateTime?
-  createdAt       DateTime       @default(now())
+  id                String           @id @default(uuid())
+  userId            String?
+  user              User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonAttemptId   String?
+  lessonAttempt     LessonAttempt?   @relation(fields: [lessonAttemptId], references: [id], onDelete: Cascade)
+  practiceSessionId String?
+  practiceSession   PracticeSession? @relation(fields: [practiceSessionId], references: [id], onDelete: SetNull)
+  exerciseId        String
+  exercise          Exercise         @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  userGivenAnswer   String           @db.Text
+  isResolved        Boolean          @default(false)
+  retryCount        Int              @default(0)
+  lastReviewedAt    DateTime?
+  resolvedAt        DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @default(now()) @updatedAt
 
+  @@index([userId, isResolved])
   @@index([exerciseId])
+}
+
+model PracticeSession {
+  id             String                @id @default(uuid())
+  userId         String
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionType    PracticeSessionType   @default(RECOMMENDED)
+  status         PracticeSessionStatus @default(ACTIVE)
+  exerciseCount  Int                   @default(0)
+  correctCount   Int                   @default(0)
+  incorrectCount Int                   @default(0)
+  durationSec    Int                   @default(0)
+  xpAwarded      Int                   @default(0)
+  startedAt      DateTime              @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  mistakes       Mistake[]
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
 }
 
 model SpeakingAttempt {
@@ -476,15 +535,17 @@ model PronunciationScore {
 // ------------------------------------------------------------------------------
 
 model DailyGoal {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  targetXP     Int      @default(30)
-  earnedXP     Int      @default(0)
-  targetDate   DateTime @db.Date
-  isCompleted  Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetXP         Int      @default(30)
+  earnedXP         Int      @default(0)
+  targetMinutes    Int      @default(15)
+  completedMinutes Int      @default(0)
+  targetDate       DateTime @db.Date
+  isCompleted      Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@unique([userId, targetDate])
   @@index([userId])
@@ -505,13 +566,14 @@ model Streak {
 }
 
 model XPTransaction {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount      Int
-  reason      String   // e.g. "LESSON_COMPLETED", "PRACTICE_SESSION", "AI_CALL"
-  referenceId String?  // Optional relation to lessonAttemptId, callId, etc.
-  createdAt   DateTime @default(now())
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount         Int
+  reason         String   // e.g. "EXERCISE_CORRECT", "LESSON_COMPLETED", "PRACTICE_SESSION", "QUEST_COMPLETED", "ACHIEVEMENT"
+  referenceId    String?  // Optional relation to lessonAttemptId, callId, etc.
+  idempotencyKey String?  @unique
+  createdAt      DateTime @default(now())
 
   @@index([userId, createdAt])
 }
@@ -528,28 +590,81 @@ model VirtualCurrency {
   @@index([userId])
 }
 
+model CurrencyLedger {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currencyType   CurrencyType @default(GEMS)
+  amount         Int          // positive for credit, negative for debit
+  balanceAfter   Int
+  reason         String       // e.g. "LESSON_REWARD", "QUEST_REWARD"
+  referenceId    String?
+  idempotencyKey String?      @unique
+  createdAt      DateTime     @default(now())
+
+  @@index([userId, createdAt])
+}
+
 model Quest {
-  id             String    @id @default(uuid())
+  id             String      @id @default(uuid())
   title          String
-  description    String    @db.Text
-  xpReward       Int       @default(20)
-  gemReward      Int       @default(5)
-  targetCount    Int       @default(1)
-  questType      String    // e.g. "COMPLETE_LESSONS", "SPEAKING_PRACTICE", "AI_MINUTES"
+  description    String      @db.Text
+  xpReward       Int         @default(20)
+  gemReward      Int         @default(5)
+  targetCount    Int         @default(1)
+  questType      String      // e.g. "COMPLETE_LESSONS", "EARN_XP", "COMPLETE_EXERCISES", "COMPLETE_PRACTICE", "MAINTAIN_STREAK"
   startDate      DateTime
   endDate        DateTime
-  isWeekly       Boolean   @default(false)
-  createdAt      DateTime  @default(now())
+  isWeekly       Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+
+  userQuests     UserQuest[]
+}
+
+model UserQuest {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questId      String
+  quest        Quest     @relation(fields: [questId], references: [id], onDelete: Cascade)
+  currentCount Int       @default(0)
+  isCompleted  Boolean   @default(false)
+  isClaimed    Boolean   @default(false)
+  completedAt  DateTime?
+  claimedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, questId])
+  @@index([userId, isCompleted])
 }
 
 model Achievement {
-  id          String   @id @default(uuid())
-  code        String   @unique // e.g. "FIRST_CONVERSATION", "STREAK_30", "VOCAB_100"
-  title       String
-  description String   @db.Text
-  badgeIcon   String
-  maxTier     Int      @default(5)
-  createdAt   DateTime @default(now())
+  id               String            @id @default(uuid())
+  code             String            @unique // e.g. "FIRST_LESSON", "FIRST_PRACTICE", "FIRST_100_XP"
+  title            String
+  description      String            @db.Text
+  badgeIcon        String
+  maxTier          Int               @default(5)
+  createdAt        DateTime          @default(now())
+
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  tier          Int         @default(1)
+  progress      Int         @default(100)
+  isUnlocked    Boolean     @default(true)
+  unlockedAt    DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+
+  @@unique([userId, achievementId])
+  @@index([userId])
 }
 
 model Leaderboard {

@@ -8,6 +8,10 @@ import { ApiResponse } from './common/types';
 import authRoutes from './modules/auth/auth.routes';
 import usersRoutes from './modules/users/users.routes';
 import languagesRoutes from './modules/languages/languages.routes';
+import coursesRoutes from './modules/courses/courses.routes';
+import lessonsRoutes from './modules/lessons/lessons.routes';
+import practiceRoutes from './modules/practice/practice.routes';
+import progressionRoutes from './modules/progression/progression.routes';
 
 export const createApp = (): Application => {
   const app = express();
@@ -44,6 +48,8 @@ export const createApp = (): Application => {
         capabilities: [
           'COURSES',
           'GAMIFICATION',
+          'PROGRESSION',
+          'PRACTICE',
           'AI_TUTOR',
           'AI_VOICE_CALL',
           'AI_VIDEO_CALL',
@@ -61,6 +67,12 @@ export const createApp = (): Application => {
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', usersRoutes);
   app.use('/api/v1/languages', languagesRoutes);
+  app.use('/api/v1/courses', coursesRoutes);
+  app.use('/api/v1/lessons', lessonsRoutes);
+  app.use('/api/v1/practice', practiceRoutes);
+  app.use('/api/v1/progression', progressionRoutes);
+  app.use('/api/v1/quests', progressionRoutes);
+  app.use('/api/v1/achievements', progressionRoutes);
 
   // Centralized Error Handling
   app.use(errorHandler);
