@@ -88,3 +88,7 @@ backend/.pgdata/
 backend/pgsql/
 backend/.env
 
+# Local build artifacts
+*.apk
+
+

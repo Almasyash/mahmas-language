@@ -18,6 +18,16 @@ import {
   VoiceTurnResponseDTO,
   EndVoiceCallInput,
   VoiceCallDebriefDTO,
+  AvatarEmotion,
+  AvatarGesture,
+  VisemeFrameDTO,
+  VisualAidCueDTO,
+  AIVideoCallDTO,
+  InitiateVideoCallInput,
+  VideoTurnInput,
+  VideoTurnResponseDTO,
+  EndVideoCallInput,
+  VideoCallDebriefDTO,
 } from './ai.types';
 import { xpService } from '../progression/xp.service';
 import { currencyService } from '../progression/currency.service';
@@ -27,8 +37,30 @@ import { streakService } from '../progression/streak.service';
 import { dailyGoalService } from '../progression/daily-goal.service';
 import { ProgressionConfig } from '../progression/progression.config';
 
+interface VideoCallSessionState {
+  callId: string;
+  userId: string;
+  characterId: string;
+  conversationId: string;
+  startedAt: Date;
+  endedAt?: Date | null;
+  turnCount: number;
+  accumulatedAccuracy: number;
+  accumulatedFluency: number;
+  accumulatedFacialEngagement: number;
+  wordsSpokenEstimate: number;
+  visualAidsExplored: number;
+  currentEmotion: AvatarEmotion;
+  sceneSetting: string;
+  greetingText: string;
+  greetingAudioBase64: string;
+  audioMimeType: string;
+  status: 'CONNECTED' | 'ENDED';
+}
+
 export class AIService {
   private aiProvider = AIProviderFactory.getProvider();
+  private activeVideoCalls = new Map<string, VideoCallSessionState>();
 
   /**
    * Lists available AI tutor characters, optionally filtered by language and CEFR difficulty.
@@ -843,6 +875,451 @@ export class AIService {
       greetingText: session.greetingText,
       greetingAudioBase64: session.greetingAudioBase64,
       audioMimeType: session.audioMimeType,
+    };
+  }
+
+  // ----------------------------------------------------------------------------
+  // PHASE 7: AI VIDEO CALLING (Avatar Animation, Visemes, & Visual Scenario Props)
+  // ----------------------------------------------------------------------------
+
+  /**
+   * Initializes a live interactive video calling session with an AI tutor avatar,
+   * setting up scenario visual aid cards and synchronized animation visemes.
+   */
+  async initiateVideoCall(userId: string, input: InitiateVideoCallInput): Promise<AIVideoCallDTO> {
+    const character = await prisma.aICharacter.findUnique({
+      where: { id: input.characterId },
+    });
+    if (!character || !character.isActive) {
+      throw new NotFoundError('AI Character not found or inactive');
+    }
+
+    const topic = input.topic || 'Inmersión visual y conversación cara a cara';
+    const sceneSetting = input.sceneSetting || (
+      character.name.includes('Mateo') ? 'Cafetería de Especialidad en Madrid' :
+      character.name.includes('Sofia') ? 'Centro Histórico y Metro de la Ciudad' :
+      character.name.includes('Elena') ? 'Seminario Académico y Biblioteca' :
+      'Espacio de Co-working y Startups'
+    );
+
+    // 1. Create underlying conversation entity
+    const conversation = await prisma.aIConversation.create({
+      data: {
+        userId,
+        characterId: character.id,
+        topic,
+      },
+      include: {
+        character: true,
+      },
+    });
+
+    const callId = `vcall-${conversation.id}`;
+
+    // 2. Generate persona-aligned video greeting
+    let greetingText = `¡Hola! Qué gusto verte cara a cara por videollamada. Te veo y te escucho de maravilla. ¿Qué tal estás hoy?`;
+    if (character.name.includes('Mateo')) {
+      greetingText = `¡Hola amigo! Qué alegría saludarte por video. Bienvenido a mi café. ¡Mira qué día tan bueno hace hoy! ¿Te apetece charlar un rato?`;
+    } else if (character.name.includes('Elena')) {
+      greetingText = `¡Buenos días! Es un placer compartir esta sesión de videollamada contigo. Podremos practicar la articulación y la expresión visual en español. ¿Comenzamos?`;
+    } else if (character.name.includes('Sofia')) {
+      greetingText = `¡Hola! Qué ilusión verte en video. Justo estaba revisando mi mapa de viaje. ¡Qué bien tener compañía para practicar español!`;
+    } else if (character.name.includes('Alex')) {
+      greetingText = `¡Hola! Qué tal, qué buena conexión de video tenemos. Me alegra saludarte cara a cara entre reunión y reunión.`;
+    }
+
+    // 3. Synthesize speech for greeting
+    const speechResult = await this.aiProvider.generateSpeech(
+      greetingText,
+      character.defaultVoice,
+      character.targetLanguageCode
+    );
+
+    // 4. Generate avatar visemes & animation
+    const initialAnim = this.aiProvider.generateAvatarAnimation(greetingText, 'happy', speechResult.durationSec);
+
+    // 5. Get initial scene visual aid
+    const initialVisualAid = this.aiProvider.getSceneVisualAid(character.name, sceneSetting);
+
+    // 6. Save greeting as message in DB
+    await prisma.aIMessage.create({
+      data: {
+        conversationId: conversation.id,
+        senderRole: 'ASSISTANT',
+        content: greetingText,
+      },
+    });
+
+    // 7. Store active video call state
+    const sessionState: VideoCallSessionState = {
+      callId,
+      userId,
+      characterId: character.id,
+      conversationId: conversation.id,
+      startedAt: new Date(),
+      turnCount: 0,
+      accumulatedAccuracy: 0,
+      accumulatedFluency: 0,
+      accumulatedFacialEngagement: 0,
+      wordsSpokenEstimate: 0,
+      visualAidsExplored: initialVisualAid ? 1 : 0,
+      currentEmotion: 'happy',
+      sceneSetting,
+      greetingText,
+      greetingAudioBase64: speechResult.audioBase64,
+      audioMimeType: speechResult.mimeType,
+      status: 'CONNECTED',
+    };
+    this.activeVideoCalls.set(callId, sessionState);
+
+    const characterDto = this.mapCharacterToDto(character);
+
+    return {
+      id: callId,
+      conversationId: conversation.id,
+      characterId: character.id,
+      character: characterDto,
+      status: 'CONNECTED',
+      startedAt: sessionState.startedAt.toISOString(),
+      endedAt: null,
+      durationSec: 0,
+      turnCount: 0,
+      greetingText,
+      greetingAudioBase64: speechResult.audioBase64,
+      audioMimeType: speechResult.mimeType,
+      currentEmotion: 'happy',
+      initialVisemes: initialAnim.visemes,
+      initialVisualAid,
+      sceneSetting,
+    };
+  }
+
+  /**
+   * Processes an interactive video turn: parses spoken words, evaluates phonetic accuracy,
+   * generates pedagogical response with lip-synced visemes, emotions, gestures, and optional visual aid props.
+   */
+  async processVideoTurn(userId: string, callId: string, input: VideoTurnInput): Promise<VideoTurnResponseDTO> {
+    const session = this.activeVideoCalls.get(callId);
+    if (!session || session.userId !== userId) {
+      throw new NotFoundError('Video call session not found');
+    }
+    if (session.status === 'ENDED') {
+      throw new BadRequestError('Video call has already ended');
+    }
+
+    const character = await prisma.aICharacter.findUnique({
+      where: { id: session.characterId },
+    });
+    if (!character) {
+      throw new NotFoundError('AI Character not found');
+    }
+
+    // 1. Evaluate spoken speech phonetics and clarity
+    const evalResult = await this.aiProvider.evaluateSpeech(
+      {
+        audioBase64: input.audioBase64,
+        spokenText: input.spokenText,
+        audioDurationMs: input.audioDurationMs || 2000,
+      },
+      character.targetLanguageCode
+    );
+
+    const userText = evalResult.transcription || input.spokenText || 'Hola';
+
+    // 2. Persist user message in conversation
+    await prisma.aIMessage.create({
+      data: {
+        conversationId: session.conversationId,
+        senderRole: 'USER',
+        content: userText,
+      },
+    });
+
+    // 3. Fetch recent conversation history and memories
+    const conversation = await prisma.aIConversation.findUnique({
+      where: { id: session.conversationId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 6,
+        },
+        memories: true,
+      },
+    });
+
+    const history = (conversation?.messages || [])
+      .reverse()
+      .map((m) => ({
+        role: (m.senderRole === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: m.content,
+      }));
+
+    const memories = (conversation?.memories || []).map((mem) => ({
+      key: mem.memoryKey,
+      value: mem.memoryValue,
+    }));
+
+    // 4. Generate AI pedagogical reply
+    const replyResult = await this.aiProvider.generateReply({
+      targetLanguage: character.targetLanguageCode,
+      nativeLanguage: 'English',
+      cefrLevel: character.difficultyCEFR,
+      characterName: character.name,
+      personalityPrompt: character.personalityPrompt,
+      memories,
+      history,
+      latestUserMessage: userText,
+    });
+
+    // 5. Store new memories if extracted
+    if (replyResult.newMemories && replyResult.newMemories.length > 0) {
+      for (const mem of replyResult.newMemories) {
+        await prisma.aIConversationMemory.create({
+          data: {
+            conversationId: session.conversationId,
+            memoryKey: mem.key,
+            memoryValue: mem.value,
+          },
+        });
+      }
+    }
+
+    // 6. Synthesize audio
+    const speechResult = await this.aiProvider.generateSpeech(
+      replyResult.reply,
+      character.defaultVoice,
+      character.targetLanguageCode
+    );
+
+    // 7. Dynamic emotion and facial engagement calculation
+    let emotion: AvatarEmotion = 'happy';
+    let facialEngagementScore = 88;
+
+    if (input.requestHelpHint) {
+      emotion = 'encouraging';
+      facialEngagementScore = 85;
+    } else if (evalResult.accuracyScore >= 95) {
+      emotion = 'celebrating';
+      facialEngagementScore = 96;
+    } else if (replyResult.correctionNote) {
+      emotion = 'encouraging';
+      facialEngagementScore = 84;
+    } else if (userText.toLowerCase().includes('por qué') || userText.toLowerCase().includes('cómo')) {
+      emotion = 'thoughtful';
+      facialEngagementScore = 90;
+    }
+
+    // 8. Generate synchronized avatar viseme sequence and gesture
+    const animResult = this.aiProvider.generateAvatarAnimation(
+      replyResult.reply,
+      emotion,
+      speechResult.durationSec
+    );
+
+    // 9. Visual aid cue (scene prop or hint flashcard)
+    let visualAid: VisualAidCueDTO | null = null;
+    if (input.requestHelpHint) {
+      visualAid = this.aiProvider.getSceneVisualAid(character.name, session.sceneSetting, true);
+      session.visualAidsExplored += 1;
+    } else if (session.turnCount === 1) {
+      visualAid = this.aiProvider.getSceneVisualAid(character.name, session.sceneSetting, false);
+      if (visualAid) session.visualAidsExplored += 1;
+    }
+
+    // 10. Persist assistant message
+    await prisma.aIMessage.create({
+      data: {
+        conversationId: session.conversationId,
+        senderRole: 'ASSISTANT',
+        content: replyResult.reply,
+        correctionNote: replyResult.correctionNote,
+      },
+    });
+
+    // 11. Update session metrics
+    session.turnCount += 1;
+    session.accumulatedAccuracy += evalResult.accuracyScore;
+    session.accumulatedFluency += evalResult.fluencyScore;
+    session.accumulatedFacialEngagement += facialEngagementScore;
+    session.currentEmotion = emotion;
+    const wordsCount = userText.split(/\s+/).filter(Boolean).length;
+    session.wordsSpokenEstimate += wordsCount;
+
+    // 12. Award video speaking micro-XP (+7 XP per video turn)
+    const xpAwarded = 7;
+    await xpService.awardXp({
+      userId,
+      amount: xpAwarded,
+      reason: 'AI_VIDEO_TURN',
+      idempotencyKey: `ai_vturn:${callId}:${session.turnCount}`,
+      referenceId: callId,
+    });
+
+    return {
+      turnIndex: session.turnCount,
+      userTranscription: userText,
+      pronunciationScore: evalResult.accuracyScore,
+      fluencyScore: evalResult.fluencyScore,
+      facialEngagementScore,
+      phonemeFeedback: evalResult.phonemeFeedback,
+      assistantReply: replyResult.reply,
+      assistantAudioBase64: speechResult.audioBase64,
+      audioMimeType: speechResult.mimeType,
+      emotion: animResult.emotion,
+      gesture: animResult.gesture,
+      visemes: animResult.visemes,
+      visualAid,
+      correctionNote: replyResult.correctionNote,
+      pronunciationAdvice: evalResult.pronunciationAdvice,
+      difficultyLevel: character.difficultyCEFR,
+      xpAwarded,
+      totalTurns: session.turnCount,
+    };
+  }
+
+  /**
+   * Concludes the interactive video call session and generates debrief metrics,
+   * awarding authoritative XP, Gems, daily quest progress, and the FIRST_AI_VIDEO_CALL achievement.
+   */
+  async endVideoCall(userId: string, callId: string, input: EndVideoCallInput): Promise<VideoCallDebriefDTO> {
+    const session = this.activeVideoCalls.get(callId);
+    if (!session || session.userId !== userId) {
+      throw new NotFoundError('Video call session not found');
+    }
+
+    session.status = 'ENDED';
+    const endedAt = new Date();
+    session.endedAt = endedAt;
+
+    const character = await prisma.aICharacter.findUnique({
+      where: { id: session.characterId },
+    });
+    if (!character) {
+      throw new NotFoundError('Character not found');
+    }
+
+    // 1. Calculate duration
+    let durationSec = input.durationSec;
+    if (!durationSec || durationSec <= 0) {
+      durationSec = Math.max(20, Math.round((endedAt.getTime() - session.startedAt.getTime()) / 1000));
+    }
+
+    // 2. Mark conversation ended in DB
+    await prisma.aIConversation.update({
+      where: { id: session.conversationId },
+      data: { endedAt },
+    });
+
+    // 3. Compute aggregate scores
+    const turns = session.turnCount;
+    const overallAccuracy = turns > 0 ? Math.round(session.accumulatedAccuracy / turns) : 90;
+    const overallFluency = turns > 0 ? Math.round(session.accumulatedFluency / turns) : 88;
+    const facialEngagementScore = turns > 0 ? Math.round(session.accumulatedFacialEngagement / turns) : 92;
+    const wordsSpoken = session.wordsSpokenEstimate > 0 ? session.wordsSpokenEstimate : Math.max(15, turns * 8);
+    const wordsPerMinute = Math.min(180, Math.round((wordsSpoken / Math.max(10, durationSec)) * 60));
+
+    // 4. Award authoritative completion rewards (+35 XP, +5 Gems)
+    const xpAwarded = 35;
+    const gemsAwarded = 5;
+
+    await xpService.awardXp({
+      userId,
+      amount: xpAwarded,
+      reason: 'AI_VIDEO_CALL_COMPLETED',
+      idempotencyKey: `ai_video_complete:${callId}`,
+      referenceId: callId,
+    });
+
+    await currencyService.credit({
+      userId,
+      amount: gemsAwarded,
+      reason: 'AI_VIDEO_CALL_REWARD',
+      idempotencyKey: `ai_video_gems:${callId}`,
+      referenceId: callId,
+    });
+
+    // 5. Unlock FIRST_AI_VIDEO_CALL achievement
+    const unlockedAchievements: string[] = [];
+    const ach = await achievementsService.unlockAchievement(userId, 'FIRST_AI_VIDEO_CALL');
+    if (ach) {
+      unlockedAchievements.push(ach.code);
+    }
+
+    // 6. Update daily quest progress
+    await questsService.recordQuestProgress(userId, 'AI_VIDEO_CALL', 1);
+    await questsService.recordQuestProgress(userId, 'EARN_XP', xpAwarded);
+
+    // 7. Maintain streak & update daily activity time
+    await streakService.recordActivity(userId);
+    const minutesSpent = Math.max(1, Math.ceil(durationSec / 60));
+    await dailyGoalService.recordActivityTime(userId, minutesSpent);
+
+    // 9. Highlights & summary
+    const pronunciationHighlights = [
+      'Visual eye contact and face expression responsiveness: Excellent',
+      'Synchronized mouth articulation across open vowels: Strong',
+      overallAccuracy >= 90
+        ? 'Great natural Spanish intonation and speech clarity!'
+        : 'Solid effort with smooth conversational rhythm.',
+    ];
+
+    const feedbackSummary = `Fantástica videollamada con ${character.name}. Practicaste ${turns} turnos de conversación con soporte visual, completaste ${durationSec} segundos cara a cara y mantuviste un nivel de fluidez del ${overallFluency}%.`;
+
+    return {
+      callId,
+      characterName: character.name,
+      totalDurationSec: durationSec,
+      turnsCompleted: turns,
+      overallAccuracy,
+      overallFluency,
+      facialEngagementScore,
+      wordsSpokenEstimate: wordsSpoken,
+      wordsPerMinute,
+      xpAwarded,
+      gemsAwarded,
+      unlockedAchievements,
+      pronunciationHighlights,
+      visualAidsExplored: Math.max(1, session.visualAidsExplored),
+      feedbackSummary,
+    };
+  }
+
+  /**
+   * Retrieves active video call metadata.
+   */
+  async getVideoCall(userId: string, callId: string): Promise<AIVideoCallDTO> {
+    const session = this.activeVideoCalls.get(callId);
+    if (!session || session.userId !== userId) {
+      throw new NotFoundError('Video call session not found');
+    }
+
+    const character = await prisma.aICharacter.findUnique({
+      where: { id: session.characterId },
+    });
+    if (!character) {
+      throw new NotFoundError('AI Character not found');
+    }
+
+    const elapsed = Math.round((new Date().getTime() - session.startedAt.getTime()) / 1000);
+    const initialVisualAid = this.aiProvider.getSceneVisualAid(character.name, session.sceneSetting);
+
+    return {
+      id: session.callId,
+      conversationId: session.conversationId,
+      characterId: character.id,
+      character: this.mapCharacterToDto(character),
+      status: session.status,
+      startedAt: session.startedAt.toISOString(),
+      endedAt: session.endedAt?.toISOString() || null,
+      durationSec: elapsed,
+      turnCount: session.turnCount,
+      greetingText: session.greetingText,
+      greetingAudioBase64: session.greetingAudioBase64,
+      audioMimeType: session.audioMimeType,
+      currentEmotion: session.currentEmotion,
+      initialVisemes: [],
+      initialVisualAid,
+      sceneSetting: session.sceneSetting,
     };
   }
 

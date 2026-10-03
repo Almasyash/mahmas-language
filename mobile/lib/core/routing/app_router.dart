@@ -12,6 +12,7 @@ import '../../features/practice/vocabulary_review_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/ai_tutor/ai_tutor_selection_screen.dart';
 import '../../features/ai_voice_call/ai_voice_call_screen.dart';
+import '../../features/ai_video_call/ai_video_call_screen.dart';
 import '../models/ai_tutor_model.dart';
 
 class AppRouter {
@@ -30,6 +31,7 @@ class AppRouter {
   static const String lessonRun = '/lesson/run';
   static const String aiTutor = '/ai-tutor';
   static const String aiVoiceCall = '/ai-voice-call';
+  static const String aiVideoCall = '/ai-video-call';
   static const String languageExchange = '/language-exchange';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -71,6 +73,12 @@ class AppRouter {
           return MaterialPageRoute(builder: (_) => const AITutorSelectionScreen());
         }
         return MaterialPageRoute(builder: (_) => AIVoiceCallScreen(character: character));
+      case aiVideoCall:
+        final character = settings.arguments as AICharacterModel?;
+        if (character == null) {
+          return MaterialPageRoute(builder: (_) => const AITutorSelectionScreen());
+        }
+        return MaterialPageRoute(builder: (_) => AIVideoCallScreen(character: character));
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

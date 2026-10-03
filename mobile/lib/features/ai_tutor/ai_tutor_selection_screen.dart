@@ -489,22 +489,23 @@ class _AITutorSelectionScreenState extends State<AITutorSelectionScreen> {
 
                                     const SizedBox(height: 16),
 
-                                    // Action Buttons: Chat & Voice Call
+                                    // Action Buttons: Chat, Voice Call, Video Call
                                     Row(
                                       children: [
                                         Expanded(
-                                          child: ElevatedButton.icon(
+                                          child: OutlinedButton.icon(
                                             onPressed: () => _startChatWithCharacter(character),
-                                            icon: const Icon(Icons.chat_bubble_outline, size: 16),
-                                            label: const Text('Chat', style: TextStyle(fontSize: 13)),
-                                            style: ElevatedButton.styleFrom(
+                                            icon: const Icon(Icons.chat_bubble_outline, size: 15),
+                                            label: const Text('Chat', style: TextStyle(fontSize: 12)),
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius: BorderRadius.circular(12),
                                               ),
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
+                                        const SizedBox(width: 6),
                                         Expanded(
                                           child: FilledButton.tonalIcon(
                                             onPressed: () {
@@ -513,9 +514,30 @@ class _AITutorSelectionScreenState extends State<AITutorSelectionScreen> {
                                                 arguments: character,
                                               );
                                             },
-                                            icon: const Icon(Icons.phone_in_talk_rounded, size: 16),
-                                            label: const Text('Voice Call', style: TextStyle(fontSize: 13)),
+                                            icon: const Icon(Icons.phone_in_talk_rounded, size: 15),
+                                            label: const Text('Voice', style: TextStyle(fontSize: 12)),
                                             style: FilledButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            onPressed: () {
+                                              Navigator.of(context).pushNamed(
+                                                '/ai-video-call',
+                                                arguments: character,
+                                              );
+                                            },
+                                            icon: const Icon(Icons.videocam_rounded, size: 15, color: Colors.white),
+                                            label: const Text('Video', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF6366F1),
+                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius: BorderRadius.circular(12),
                                               ),

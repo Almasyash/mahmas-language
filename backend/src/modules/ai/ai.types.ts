@@ -142,3 +142,110 @@ export interface VoiceCallDebriefDTO {
   pronunciationHighlights: string[];
   feedbackSummary: string;
 }
+
+// ------------------------------------------------------------------------------
+// Phase 7: AI Video Calling Types & DTOs
+// ------------------------------------------------------------------------------
+
+export type AvatarEmotion =
+  | 'neutral'
+  | 'happy'
+  | 'encouraging'
+  | 'thoughtful'
+  | 'surprised'
+  | 'celebrating';
+
+export type VisemeType = 'rest' | 'aa' | 'ee' | 'oo' | 'ch' | 'ff';
+
+export type AvatarGesture = 'nod' | 'smile' | 'wave' | 'tilt' | 'rest';
+
+export interface VisemeFrameDTO {
+  viseme: VisemeType;
+  timestampMs: number;
+  durationMs: number;
+}
+
+export interface VisualAidCueDTO {
+  id: string;
+  title: string;
+  category: 'menu' | 'map' | 'flashcard' | 'cultural_tip' | 'photo';
+  headline: string;
+  body: string;
+  targetVocab: string[];
+  imageUrl?: string;
+}
+
+export interface AIVideoCallDTO {
+  id: string;
+  conversationId: string;
+  characterId: string;
+  character: AITutorCharacterDTO;
+  status: 'CONNECTING' | 'CONNECTED' | 'ENDED';
+  startedAt: string;
+  endedAt?: string | null;
+  durationSec: number;
+  turnCount: number;
+  greetingText: string;
+  greetingAudioBase64: string;
+  audioMimeType: string;
+  currentEmotion: AvatarEmotion;
+  initialVisemes: VisemeFrameDTO[];
+  initialVisualAid?: VisualAidCueDTO | null;
+  sceneSetting: string;
+}
+
+export interface InitiateVideoCallInput {
+  characterId: string;
+  topic?: string;
+  sceneSetting?: string;
+}
+
+export interface VideoTurnInput {
+  spokenText?: string;
+  audioBase64?: string;
+  audioDurationMs?: number;
+  requestHelpHint?: boolean;
+}
+
+export interface VideoTurnResponseDTO {
+  turnIndex: number;
+  userTranscription: string;
+  pronunciationScore: number;
+  fluencyScore: number;
+  facialEngagementScore: number; // 0 - 100 engagement & visual responsiveness
+  phonemeFeedback: PhonemeFeedbackDTO[];
+  assistantReply: string;
+  assistantAudioBase64: string;
+  audioMimeType: string;
+  emotion: AvatarEmotion;
+  gesture: AvatarGesture;
+  visemes: VisemeFrameDTO[];
+  visualAid?: VisualAidCueDTO | null;
+  correctionNote?: string | null;
+  pronunciationAdvice?: string | null;
+  difficultyLevel: string;
+  xpAwarded: number;
+  totalTurns: number;
+}
+
+export interface EndVideoCallInput {
+  durationSec?: number;
+}
+
+export interface VideoCallDebriefDTO {
+  callId: string;
+  characterName: string;
+  totalDurationSec: number;
+  turnsCompleted: number;
+  overallAccuracy: number;
+  overallFluency: number;
+  facialEngagementScore: number;
+  wordsSpokenEstimate: number;
+  wordsPerMinute: number;
+  xpAwarded: number;
+  gemsAwarded: number;
+  unlockedAchievements: string[];
+  pronunciationHighlights: string[];
+  visualAidsExplored: number;
+  feedbackSummary: string;
+}

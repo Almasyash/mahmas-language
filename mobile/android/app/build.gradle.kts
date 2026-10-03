@@ -7,7 +7,6 @@ plugins {
 android {
     namespace = "com.mahmas.language.mahmas_language"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

@@ -88,6 +88,13 @@ const initialAchievements = [
     badgeIcon: '🎙️',
     maxTier: 1,
   },
+  {
+    code: 'FIRST_AI_VIDEO_CALL',
+    title: 'Visual Virtuoso',
+    description: 'Complete your first live video call session with an AI tutor.',
+    badgeIcon: '📹',
+    maxTier: 1,
+  },
 ];
 
 async function main() {
@@ -191,6 +198,17 @@ async function main() {
       targetCount: 1,
       xpReward: 30,
       gemReward: 6,
+      startDate,
+      endDate,
+    },
+    {
+      id: 'quest-ai-video',
+      title: 'Face-to-Face Mastery',
+      description: 'Practice interactive speaking in an AI video call.',
+      questType: 'AI_VIDEO_CALL',
+      targetCount: 1,
+      xpReward: 35,
+      gemReward: 8,
       startDate,
       endDate,
     },

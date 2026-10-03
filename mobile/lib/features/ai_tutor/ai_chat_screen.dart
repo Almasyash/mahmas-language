@@ -268,6 +268,16 @@ class _AIChatScreenState extends State<AIChatScreen> {
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.videocam_rounded, color: Color(0xFF818CF8)),
+            tooltip: 'Live Video Call',
+            onPressed: () {
+              Navigator.of(context).pushNamed(
+                '/ai-video-call',
+                arguments: character,
+              );
+            },
+          ),
           TextButton.icon(
             onPressed: _endSession,
             icon: const Icon(Icons.check_circle_outline, size: 16),

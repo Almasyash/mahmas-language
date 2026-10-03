@@ -15,8 +15,8 @@ This roadmap details the progressive delivery plan for the Mahmas Language Super
 | **Phase 4** | **Practice & Skills Drill** | Spaced Repetition (SRS) flashcards & vocabulary, mistakes review, practice runner session. | **COMPLETED** |
 | **Phase 5** | **AI Conversational Tutor** | Persona configuration, episodic context memory, non-intrusive pedagogical feedback, session debrief. | **COMPLETED** |
 | **Phase 6** | **AI Voice Calling** | Real-time audio streaming, speech-to-text (STT), low-latency LLM generation, neural text-to-speech (TTS), call debriefing. | **COMPLETED** |
-| **Phase 7** | **AI Video Calling** | Animated avatar synchronization, facial expression state machine, live captions, conversational difficulty adaptation. | *Next* |
-| **Phase 8** | **Language Exchange** | Mutual interest & complementary language matching, tandem partner discovery. | *Planned* |
+| **Phase 7** | **AI Video Calling** | Animated avatar synchronization, facial expression state machine, live captions, conversational difficulty adaptation. | **COMPLETED** |
+| **Phase 8** | **Language Exchange** | Mutual interest & complementary language matching, tandem partner discovery. | *Next* |
 | **Phase 9** | **Real Human Audio Calling** | WebRTC signaling, STUN/TURN traversal, in-call controls, user anonymity. | *Planned* |
 | **Phase 10** | **Real Human Video Calling** | WebRTC video pipeline, camera switching, connection reconnection state machines. | *Planned* |
 | **Phase 11** | **Social & Leaderboards** | Weekly tiered leagues (Bronze to Diamond), quests, friend challenges, activity feeds. | *Planned* |
@@ -46,25 +46,34 @@ This roadmap details the progressive delivery plan for the Mahmas Language Super
 
 ---
 
-## Phase 7 Detailed Deliverables (Immediate Next Milestone)
+## Phase 7 Accomplishments (Delivered)
 1. **AI Video Calling Backend Architecture & Avatar Pipeline:**
-   - Video session signaling & lifecycle endpoints (`/api/v1/ai/video-calls/initiate`, `/turn`, `/end`, `/state`).
-   - Avatar animation state machine engine supporting contextual facial emotion states:
-     - `idle` / `neutral`: Gentle eye-blink and breathing loop.
-     - `listening`: Engaged forward lean, nod, and active eye contact.
-     - `thinking`: Thoughtful upward eye shift or subtle head tilt.
-     - `speaking`: Lip-sync mouth phoneme shapes (visemes: A/I/U/E/O, consonants) matched to audio cadence.
-     - `celebrating` / `encouraging`: Warm smile, enthusiastic nod upon high pronunciation scores.
-   - Dynamic conversational difficulty scaffolding:
-     - Automatic vocabulary simplification if user hesitation or low fluency is detected.
-     - Visual aid card projection (e.g. flashcard prompt or picture prompt in video stream) when user asks for help.
-   - Authoritative video call progression rewards (+35 XP, +5 Gems, `FIRST_AI_VIDEO_CALL` achievement, streak and speaking time).
+   - Full server lifecycle endpoints: `/api/v1/ai/video-calls/initiate`, `/video-calls/:id/turn`, `/video-calls/:id/end`, and `/video-calls/:id`.
+   - Procedural facial emotion state machine (`happy`, `encouraging`, `thoughtful`, `celebrating`, `neutral`) and dynamic lip-sync mouth phoneme viseme generation (`aa`, `ee`, `oo`, `ch`, `ff`, `rest`).
+   - Contextual visual aid cues & scenario props generator (`getSceneVisualAid`) providing Café menus, metro transit maps, airport boarding passes, and dynamic grammatical help flashcards with interactive target vocabulary.
+   - Authoritative gamified progression rewards (+7 XP/turn, +35 XP and +5 Gems completion, daily goal activity time increment, streak updates, `FIRST_AI_VIDEO_CALL` achievement unlock, and `quest-ai-video` progress).
+   - 9 new backend integration tests passing (78/78 total across all 6 test suites).
 
-2. **AI Video Calling Mobile Experience (Flutter):**
-   - Immersive video call screen (`AIVideoCallScreen`) with split-view / picture-in-picture (PiP):
-     - Large main viewport rendering the animated character avatar with smooth visual transitions between emotion & viseme states.
-     - Floating user camera preview with flip camera, pause video, and mute toggles.
-   - Live closed captions overlay with dual-language toggle (Spanish target subtitles + English assistive hints).
-   - Interactive in-video visual aids overlay displaying situational context (e.g. café menu card when roleplaying ordering coffee).
-   - Video call debrief dialog with visual performance breakdown, facial expression reaction replay, and rewards.
+2. **AI Video Calling Mobile Client (Flutter):**
+   - Full-screen immersion screen (`AIVideoCallScreen`) with ambient radial scene backdrop, active call timer, scenario header, and HD 60FPS stream indicator.
+   - Procedural 2D animated avatar canvas (`AIVideoAvatarWidget`) with idle breathing, eye-blinking loop, eyebrow tilts, blush, mouth viseme animations, and emotion pills.
+   - Draggable floating user camera Picture-in-Picture (PiP) card with front/back camera flip, pause/resume video toggle, and mic mute status.
+   - Dual closed captions overlay with target Spanish text, last spoken utterance transcription, phonetic pronunciation tip pill, and toggleable English hints (`EN HINT` / `ES ONLY`).
+   - Contextual visual aid card overlay (e.g. Café Menú Madrid) with tap-to-speak interactive target vocabulary tags.
+   - Control island: Mic mute/unmute, Camera on/off, Ask hint/prop toggle, Push-to-Talk utterance button, Flip camera, and End Call.
+   - Post-call debrief dialog (`AIVideoCallDebriefDialog`) with tri-meter visual gauges (Pronunciation Accuracy, Fluency, Visual Focus), acoustic metrics, XP/gem rewards, and achievement unlocks.
+   - Route registration (`/ai-video-call`) and one-tap video calling triggers in `AITutorSelectionScreen` and `AIChatScreen`.
+   - 10 new widget/unit tests passing; `flutter analyze` reports 0 issues; all 45/45 mobile client tests passing!
 
+---
+
+## Phase 8 Detailed Deliverables (Immediate Next Milestone)
+1. **Language Exchange Matching & Tandem Discovery Engine:**
+   - Native language vs. target language bidirectional matching algorithm.
+   - Exchange partner profile directory with proficiency badges, interests, and availability status.
+   - Tandem partner invitations, request acceptance/rejection, and mutual language agreement.
+2. **Text & Voice Exchange Messaging:**
+   - Real-time exchange messaging with in-chat message translation, inline corrections, and voice audio notes.
+   - Built-in pedagogical correction tools (inline typo, grammar, and natural phrasing suggestions).
+3. **Exchange Gamification:**
+   - Tandem study streaks, mutual practice XP, community helpfulness karma points, and language exchange quests.

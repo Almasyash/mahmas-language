@@ -4,7 +4,14 @@
 // ==============================================================================
 
 import { config } from '../../config/environment';
-import { PhonemeFeedbackDTO } from './ai.types';
+import {
+  PhonemeFeedbackDTO,
+  AvatarEmotion,
+  AvatarGesture,
+  VisemeFrameDTO,
+  VisemeType,
+  VisualAidCueDTO,
+} from './ai.types';
 
 export interface AIMessageContext {
   targetLanguage: string;
@@ -39,10 +46,18 @@ export interface SpeechEvaluationResult {
   pronunciationAdvice?: string | null;
 }
 
+export interface AvatarAnimationResult {
+  emotion: AvatarEmotion;
+  gesture: AvatarGesture;
+  visemes: VisemeFrameDTO[];
+}
+
 export interface IAIProviderAdapter {
   generateReply(context: AIMessageContext): Promise<AIResponsePayload>;
   generateSpeech(text: string, voiceName?: string | null, languageCode?: string): Promise<SpeechSynthesisResult>;
   evaluateSpeech(input: { audioBase64?: string; spokenText?: string; audioDurationMs?: number }, languageCode: string): Promise<SpeechEvaluationResult>;
+  generateAvatarAnimation(text: string, emotion?: AvatarEmotion, durationSec?: number): AvatarAnimationResult;
+  getSceneVisualAid(characterName: string, sceneSetting?: string, isHintRequest?: boolean): VisualAidCueDTO | null;
 }
 
 /**
@@ -261,6 +276,153 @@ export class MockAIProviderAdapter implements IAIProviderAdapter {
       pronunciationAdvice: advice,
     };
   }
+
+  generateAvatarAnimation(
+    text: string,
+    emotion: AvatarEmotion = 'neutral',
+    durationSec: number = 2.0
+  ): AvatarAnimationResult {
+    // 1. Gesture selection based on emotion and content
+    let gesture: AvatarGesture = 'rest';
+    const lower = text.toLowerCase();
+    if (lower.includes('hola') || lower.includes('buenos') || lower.includes('bienvenido')) {
+      gesture = 'wave';
+    } else if (emotion === 'celebrating') {
+      gesture = 'smile';
+    } else if (emotion === 'happy' || emotion === 'encouraging') {
+      gesture = 'nod';
+    } else if (emotion === 'thoughtful') {
+      gesture = 'tilt';
+    }
+
+    // 2. Build timed visemes from speech utterance
+    const visemes: VisemeFrameDTO[] = [];
+    const totalMs = Math.max(1200, Math.round(durationSec * 1000));
+
+    // Initial rest frame
+    visemes.push({ viseme: 'rest', timestampMs: 0, durationMs: 150 });
+    let currentMs = 150;
+
+    // Split text into words/tokens
+    const tokens = text.replace(/[^a-záéíóúñ\s]/gi, '').split(/\s+/).filter(Boolean);
+    const tokenDuration = Math.max(120, Math.floor((totalMs - 300) / Math.max(1, tokens.length * 2)));
+
+    for (const token of tokens) {
+      const lowerToken = token.toLowerCase();
+      for (let i = 0; i < lowerToken.length; i += 2) {
+        if (currentMs >= totalMs - 150) break;
+        const char = lowerToken[i];
+        let viseme: VisemeType = 'aa';
+
+        if (/[aeiouáéíóú]/.test(char)) {
+          if (/[aoáó]/.test(char)) viseme = 'aa';
+          else if (/[eiéí]/.test(char)) viseme = 'ee';
+          else if (/[uú]/.test(char)) viseme = 'oo';
+        } else if (/[fv]/.test(char)) {
+          viseme = 'ff';
+        } else if (/[scztd]/.test(char)) {
+          viseme = 'ch';
+        } else {
+          viseme = 'aa';
+        }
+
+        visemes.push({
+          viseme,
+          timestampMs: currentMs,
+          durationMs: tokenDuration,
+        });
+        currentMs += tokenDuration;
+      }
+      // Micro-pause between words
+      if (currentMs < totalMs - 150) {
+        visemes.push({
+          viseme: 'rest',
+          timestampMs: currentMs,
+          durationMs: 80,
+        });
+        currentMs += 80;
+      }
+    }
+
+    // Trailing rest frame
+    visemes.push({
+      viseme: 'rest',
+      timestampMs: currentMs,
+      durationMs: Math.max(150, totalMs - currentMs),
+    });
+
+    return {
+      emotion,
+      gesture,
+      visemes,
+    };
+  }
+
+  getSceneVisualAid(
+    characterName: string,
+    sceneSetting?: string,
+    isHintRequest: boolean = false
+  ): VisualAidCueDTO | null {
+    if (isHintRequest) {
+      return {
+        id: 'cue-hint-vocab',
+        title: 'Guía de Ayuda (Help Guide)',
+        category: 'flashcard',
+        headline: 'Frases Clave Útiles',
+        body: 'Usa estas frases para responder: "Me gustaría pedir...", "¿Cuánto cuesta?", "Muchas gracias".',
+        targetVocab: ['Me gustaría', 'Por favor', 'Cuánto cuesta', 'La cuenta'],
+      };
+    }
+
+    const name = characterName.toLowerCase();
+    if (name.includes('mateo')) {
+      return {
+        id: 'cue-cafe-madrid',
+        title: 'Menú del Café Central',
+        category: 'menu',
+        headline: 'Cafetería Tradicional en Madrid',
+        body: 'Pide bebidas y comida: Café con leche (1.80€), Croissant caliente (1.50€), Tostada con tomate (2.20€).',
+        targetVocab: ['Café con leche', 'Croissant', 'Tostada con tomate', 'Azúcar'],
+        imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=400&q=80',
+      };
+    }
+
+    if (name.includes('sofia')) {
+      return {
+        id: 'cue-metro-madrid',
+        title: 'Mapa de la Ciudad y Transporte',
+        category: 'map',
+        headline: 'Explorando la Gran Vía y Sol',
+        body: 'Pregunta cómo llegar: "¿Dónde está la estación de metro?", "Billete sencillo", "Línea 1 directa".',
+        targetVocab: ['Estación', 'Metro', 'Billete', 'A la derecha', 'Recto'],
+        imageUrl: 'https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=400&q=80',
+      };
+    }
+
+    if (name.includes('elena')) {
+      return {
+        id: 'cue-linguistics-card',
+        title: 'Estructuras Lingüísticas y Cortesía',
+        category: 'cultural_tip',
+        headline: 'Fórmulas de Cortesía en Español',
+        body: 'En contextos formales se utiliza "Usted", mientras que entre amigos usamos "Tú".',
+        targetVocab: ['Usted', 'Disculpe', 'Con permiso', 'Encantado/a'],
+      };
+    }
+
+    if (name.includes('alex')) {
+      return {
+        id: 'cue-tech-sprint',
+        title: 'Pizarra de Trabajo y Sprint',
+        category: 'photo',
+        headline: 'Reunión Diaria de Ingeniería',
+        body: 'Términos de trabajo: "Revisión de código", "Despliegue en producción", "Base de datos".',
+        targetVocab: ['Despliegue', 'Base de datos', 'Arquitectura', 'Equipo'],
+      };
+    }
+
+    return null;
+  }
 }
 
 // ------------------------------------------------------------------------------
@@ -362,6 +524,22 @@ Instructions:
     languageCode: string
   ): Promise<SpeechEvaluationResult> {
     return this.mockFallback.evaluateSpeech(input, languageCode);
+  }
+
+  generateAvatarAnimation(
+    text: string,
+    emotion?: AvatarEmotion,
+    durationSec?: number
+  ): AvatarAnimationResult {
+    return this.mockFallback.generateAvatarAnimation(text, emotion, durationSec);
+  }
+
+  getSceneVisualAid(
+    characterName: string,
+    sceneSetting?: string,
+    isHintRequest?: boolean
+  ): VisualAidCueDTO | null {
+    return this.mockFallback.getSceneVisualAid(characterName, sceneSetting, isHintRequest);
   }
 }
 

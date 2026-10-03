@@ -27,4 +27,10 @@ router.post('/calls/:id/turn', (req, res, next) => aiController.processVoiceTurn
 router.post('/calls/:id/end', (req, res, next) => aiController.endVoiceCall(req, res, next));
 router.get('/calls/:id', (req, res, next) => aiController.getVoiceCall(req, res, next));
 
+// Live Video Calls (Phase 7)
+router.post('/video-calls/initiate', (req, res, next) => aiController.initiateVideoCall(req, res, next));
+router.post('/video-calls/:id/turn', (req, res, next) => aiController.processVideoTurn(req, res, next));
+router.post('/video-calls/:id/end', (req, res, next) => aiController.endVideoCall(req, res, next));
+router.get('/video-calls/:id', (req, res, next) => aiController.getVideoCall(req, res, next));
+
 export default router;

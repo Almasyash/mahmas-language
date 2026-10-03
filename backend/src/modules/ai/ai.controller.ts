@@ -240,6 +240,95 @@ export class AIController {
       next(err);
     }
   }
+
+  // ----------------------------------------------------------------------------
+  // PHASE 7: AI VIDEO CALLING
+  // ----------------------------------------------------------------------------
+
+  async initiateVideoCall(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.userId;
+      const parsed = z.object({
+        characterId: z.string().min(1, 'characterId is required'),
+        topic: z.string().optional(),
+        sceneSetting: z.string().optional(),
+      }).parse(req.body);
+
+      const call = await aiService.initiateVideoCall(userId, parsed);
+
+      const response: ApiResponse = {
+        success: true,
+        data: { call },
+        meta: { timestamp: new Date().toISOString() },
+      };
+      return res.status(201).json(response);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async processVideoTurn(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.userId;
+      const callId = req.params.id;
+      const parsed = z.object({
+        audioBase64: z.string().optional(),
+        spokenText: z.string().optional(),
+        audioDurationMs: z.number().int().min(0).optional(),
+        requestHelpHint: z.boolean().optional(),
+      }).parse(req.body);
+
+      const result = await aiService.processVideoTurn(userId, callId, parsed);
+
+      const response: ApiResponse = {
+        success: true,
+        data: result,
+        meta: { timestamp: new Date().toISOString() },
+      };
+      return res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async endVideoCall(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.userId;
+      const callId = req.params.id;
+      const parsed = z.object({
+        durationSec: z.number().int().min(0).max(86400).optional(),
+      }).parse(req.body);
+
+      const debrief = await aiService.endVideoCall(userId, callId, parsed);
+
+      const response: ApiResponse = {
+        success: true,
+        data: { debrief },
+        meta: { timestamp: new Date().toISOString() },
+      };
+      return res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getVideoCall(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.userId;
+      const callId = req.params.id;
+
+      const call = await aiService.getVideoCall(userId, callId);
+
+      const response: ApiResponse = {
+        success: true,
+        data: { call },
+        meta: { timestamp: new Date().toISOString() },
+      };
+      return res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const aiController = new AIController();
