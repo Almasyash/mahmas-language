@@ -5,6 +5,9 @@ import { config } from './config/environment';
 import { requestLogger } from './middleware/logger.middleware';
 import { errorHandler } from './middleware/error.middleware';
 import { ApiResponse } from './common/types';
+import authRoutes from './modules/auth/auth.routes';
+import usersRoutes from './modules/users/users.routes';
+import languagesRoutes from './modules/languages/languages.routes';
 
 export const createApp = (): Application => {
   const app = express();
@@ -53,6 +56,11 @@ export const createApp = (): Application => {
     };
     res.status(200).json(response);
   });
+
+  // API Modules
+  app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1/users', usersRoutes);
+  app.use('/api/v1/languages', languagesRoutes);
 
   // Centralized Error Handling
   app.use(errorHandler);
