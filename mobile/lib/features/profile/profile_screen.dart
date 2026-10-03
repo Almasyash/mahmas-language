@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/auth/auth_scope.dart';
+import '../../core/models/progression_model.dart';
+import '../../core/repositories/progression_repository.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,12 +18,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _bioController = TextEditingController();
   int _selectedDailyMinutes = 15;
 
+  List<AchievementModel> _achievements = [];
+  bool _isLoadingAchievements = true;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadCurrentUserData();
+      _loadAchievements();
     });
+  }
+
+  Future<void> _loadAchievements() async {
+    try {
+      final repo = ProgressionRepository(apiClient: AuthScope.of(context).apiClient);
+      final list = await repo.getAchievements();
+      if (mounted) {
+        setState(() {
+          _achievements = list;
+          _isLoadingAchievements = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingAchievements = false;
+        });
+      }
+    }
   }
 
   void _loadCurrentUserData() {
@@ -268,6 +293,103 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       value: user.onboardingCompleted ? 'Completed' : 'Pending',
                       valueColor: user.onboardingCompleted ? Colors.green : Colors.orange,
                     ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Achievements Card
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Achievements',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          '${_achievements.where((a) => a.isUnlocked).length} / ${_achievements.length} Unlocked',
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (_isLoadingAchievements)
+                      const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()))
+                    else if (_achievements.isEmpty)
+                      const Text('No achievements available.')
+                    else
+                      ..._achievements.map((ach) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6.0),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: ach.isUnlocked ? Colors.amber.shade50 : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  ach.isUnlocked ? Icons.military_tech_rounded : Icons.lock_outline_rounded,
+                                  color: ach.isUnlocked ? Colors.amber.shade800 : Colors.grey,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      ach.title,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: ach.isUnlocked ? Colors.black87 : Colors.grey.shade700,
+                                      ),
+                                    ),
+                                    Text(
+                                      ach.description,
+                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (ach.isUnlocked && ach.unlockedAt != null)
+                                Text(
+                                  'Unlocked',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade700,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  '+${ach.xpReward} XP',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange.shade800,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }),
                   ],
                 ),
               ),

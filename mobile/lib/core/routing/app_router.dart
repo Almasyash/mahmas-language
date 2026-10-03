@@ -3,7 +3,12 @@ import '../auth/auth_scope.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/signup_screen.dart';
 import '../../features/home/home_screen.dart';
+import '../../features/lessons/lesson_runner_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
+import '../../features/practice/mistake_review_screen.dart';
+import '../../features/practice/practice_runner_screen.dart';
+import '../../features/practice/practice_screen.dart';
+import '../../features/practice/vocabulary_review_screen.dart';
 import '../../features/profile/profile_screen.dart';
 
 class AppRouter {
@@ -13,8 +18,13 @@ class AppRouter {
   static const String onboarding = '/onboarding';
   static const String home = '/home';
   static const String profile = '/profile';
+  static const String practice = '/practice';
+  static const String practiceSession = '/practice/session';
+  static const String practiceMistakes = '/practice/mistakes';
+  static const String practiceVocabulary = '/practice/vocabulary';
   static const String coursePath = '/courses';
   static const String lesson = '/lesson';
+  static const String lessonRun = '/lesson/run';
   static const String aiTutor = '/ai-tutor';
   static const String languageExchange = '/language-exchange';
 
@@ -32,6 +42,23 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const HomeScreen());
       case profile:
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
+      case practice:
+        return MaterialPageRoute(builder: (_) => const PracticeScreen());
+      case practiceSession:
+        final sessionType = settings.arguments as String? ?? 'RECOMMENDED';
+        return MaterialPageRoute(builder: (_) => PracticeRunnerScreen(sessionType: sessionType));
+      case practiceMistakes:
+        return MaterialPageRoute(builder: (_) => const MistakeReviewScreen());
+      case practiceVocabulary:
+        return MaterialPageRoute(builder: (_) => const VocabularyReviewScreen());
+      case lessonRun:
+        final args = settings.arguments as Map<String, dynamic>? ?? {};
+        return MaterialPageRoute(
+          builder: (_) => LessonRunnerScreen(
+            lessonId: args['lessonId'] as String? ?? '',
+            lessonTitle: args['lessonTitle'] as String? ?? 'Lesson',
+          ),
+        );
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(
