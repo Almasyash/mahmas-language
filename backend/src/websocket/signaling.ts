@@ -1,10 +1,8 @@
 import { Server as HttpServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-
-interface ClientConnection {
-  userId: string;
-  ws: WebSocket;
-}
+import jwt from 'jsonwebtoken';
+import { config } from '../config/environment';
+import { UserSessionPayload } from '../common/types';
 
 export class SignalingServer {
   private wss: WebSocketServer;
@@ -19,6 +17,20 @@ export class SignalingServer {
     this.wss.on('connection', (ws: WebSocket, req) => {
       let currentUserId: string | null = null;
 
+      // Check optional query token in handshake: /ws?token=...
+      try {
+        const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+        const queryToken = url.searchParams.get('token');
+        if (queryToken) {
+          const decoded = jwt.verify(queryToken, config.jwtAccessSecret) as UserSessionPayload;
+          currentUserId = decoded.userId;
+          this.clients.set(currentUserId, ws);
+          ws.send(JSON.stringify({ event: 'auth:identified', success: true, userId: currentUserId }));
+        }
+      } catch {
+        // Query token invalid or not present; wait for auth:identify event
+      }
+
       ws.on('message', (message: string) => {
         try {
           const data = JSON.parse(message.toString());
@@ -26,11 +38,33 @@ export class SignalingServer {
 
           switch (event) {
             case 'auth:identify': {
-              currentUserId = payload.userId;
-              if (currentUserId) {
-                this.clients.set(currentUserId, ws);
-                ws.send(JSON.stringify({ event: 'auth:identified', success: true }));
+              const token = payload?.token;
+              if (!token) {
+                ws.send(JSON.stringify({ event: 'auth:error', error: 'Authentication token required' }));
+                break;
               }
+
+              try {
+                const decoded = jwt.verify(token, config.jwtAccessSecret) as UserSessionPayload;
+                if (payload.userId && payload.userId !== decoded.userId) {
+                  ws.send(JSON.stringify({ event: 'auth:error', error: 'User ID does not match token' }));
+                  break;
+                }
+                currentUserId = decoded.userId;
+                this.clients.set(currentUserId, ws);
+                ws.send(JSON.stringify({ event: 'auth:identified', success: true, userId: currentUserId }));
+              } catch {
+                ws.send(JSON.stringify({ event: 'auth:error', error: 'Invalid or expired authentication token' }));
+              }
+              break;
+            }
+
+            case 'auth:logout': {
+              if (currentUserId) {
+                this.clients.delete(currentUserId);
+                currentUserId = null;
+              }
+              ws.send(JSON.stringify({ event: 'auth:logged_out', success: true }));
               break;
             }
 
@@ -41,7 +75,17 @@ export class SignalingServer {
             case 'call:signal:answer':
             case 'call:signal:ice':
             case 'call:end': {
-              const targetUserId = payload.targetUserId;
+              if (!currentUserId) {
+                ws.send(JSON.stringify({ event: 'error', error: 'Authentication required for signaling' }));
+                break;
+              }
+
+              const targetUserId = payload?.targetUserId;
+              if (!targetUserId) {
+                ws.send(JSON.stringify({ event: 'error', error: 'targetUserId is required' }));
+                break;
+              }
+
               const targetWs = this.clients.get(targetUserId);
               if (targetWs && targetWs.readyState === WebSocket.OPEN) {
                 targetWs.send(JSON.stringify({
@@ -61,7 +105,7 @@ export class SignalingServer {
       });
 
       ws.on('close', () => {
-        if (currentUserId) {
+        if (currentUserId && this.clients.get(currentUserId) === ws) {
           this.clients.delete(currentUserId);
         }
       });
@@ -72,3 +116,4 @@ export class SignalingServer {
     return this.clients.size;
   }
 }
+
