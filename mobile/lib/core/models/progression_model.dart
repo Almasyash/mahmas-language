@@ -394,13 +394,17 @@ class PracticeSessionModel {
     required this.exercises,
   });
 
-  factory PracticeSessionModel.fromJson(Map<String, dynamic> json) {
+  factory PracticeSessionModel.fromJson(Map<String, dynamic> rawJson) {
+    final json = rawJson.containsKey('session') && rawJson['session'] is Map<String, dynamic>
+        ? (rawJson['session'] as Map<String, dynamic>)
+        : rawJson;
+
     final exList = (json['exercises'] as List<dynamic>? ?? [])
         .map((e) => PracticeExerciseModel.fromJson(e as Map<String, dynamic>))
         .toList();
 
     return PracticeSessionModel(
-      sessionId: json['sessionId'] as String? ?? '',
+      sessionId: json['sessionId'] as String? ?? json['id'] as String? ?? '',
       sessionType: json['sessionType'] as String? ?? 'RECOMMENDED',
       exerciseCount: json['exerciseCount'] as int? ?? exList.length,
       exercises: exList,

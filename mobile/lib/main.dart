@@ -11,15 +11,18 @@ import 'core/theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Smart API URL resolution: localhost for Web/Desktop, 10.0.2.2 for Android emulator
-  final String apiBaseUrl = (kIsWeb ||
-          defaultTargetPlatform == TargetPlatform.windows ||
-          defaultTargetPlatform == TargetPlatform.macOS ||
-          defaultTargetPlatform == TargetPlatform.linux)
-      ? 'http://localhost:4000/api/v1'
-      : AppConfig.defaultApiBaseUrl;
-
   final tokenStorage = TokenStorage();
+  final savedServerUrl = await tokenStorage.getServerUrl();
+
+  // Smart API URL resolution: saved custom URL > localhost for Desktop > local LAN IP for physical device
+  final String apiBaseUrl = savedServerUrl ??
+      ((kIsWeb ||
+              defaultTargetPlatform == TargetPlatform.windows ||
+              defaultTargetPlatform == TargetPlatform.macOS ||
+              defaultTargetPlatform == TargetPlatform.linux)
+          ? 'http://localhost:4000/api/v1'
+          : AppConfig.defaultApiBaseUrl);
+
   final apiClient = ApiClient(
     baseUrl: apiBaseUrl,
     tokenStorage: tokenStorage,

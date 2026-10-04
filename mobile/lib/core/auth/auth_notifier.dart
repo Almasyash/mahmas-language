@@ -154,6 +154,8 @@ class AuthNotifier extends ChangeNotifier {
     String? avatarUrl,
     int? dailyMinutesGoal,
     String? timezone,
+    String? targetLanguageId,
+    String? nativeLanguageId,
   }) async {
     final payload = <String, dynamic>{};
     if (displayName != null) payload['displayName'] = displayName;
@@ -161,6 +163,8 @@ class AuthNotifier extends ChangeNotifier {
     if (avatarUrl != null) payload['avatarUrl'] = avatarUrl;
     if (dailyMinutesGoal != null) payload['dailyMinutesGoal'] = dailyMinutesGoal;
     if (timezone != null) payload['timezone'] = timezone;
+    if (targetLanguageId != null) payload['targetLanguageId'] = targetLanguageId;
+    if (nativeLanguageId != null) payload['nativeLanguageId'] = nativeLanguageId;
 
     final res = await apiClient.patch<Map<String, dynamic>>(
       '/users/me/profile',
@@ -175,6 +179,12 @@ class AuthNotifier extends ChangeNotifier {
         avatarUrl: updatedData['avatarUrl'] as String?,
         dailyMinutesGoal: updatedData['dailyMinutesGoal'] as int?,
         timezone: updatedData['timezone'] as String?,
+        nativeLanguage: updatedData['nativeLanguage'] != null
+            ? LanguageModel.fromJson(updatedData['nativeLanguage'] as Map<String, dynamic>)
+            : _currentUser?.nativeLanguage,
+        targetLanguage: updatedData['targetLanguage'] != null
+            ? LanguageModel.fromJson(updatedData['targetLanguage'] as Map<String, dynamic>)
+            : _currentUser?.targetLanguage,
       );
       notifyListeners();
       return true;

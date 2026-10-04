@@ -287,7 +287,7 @@ class _LessonRunnerScreenState extends State<LessonRunnerScreen> {
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                 color: isSelected
                                     ? theme.colorScheme.onPrimaryContainer
-                                    : Colors.black87,
+                                    : theme.colorScheme.onSurface,
                               ),
                             ),
                           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/auth/auth_scope.dart';
 import '../../core/config/app_config.dart';
+import 'server_config_dialog.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -68,6 +69,13 @@ class _SignupScreenState extends State<SignupScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Account'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.dns_outlined),
+            tooltip: 'Server Settings',
+            onPressed: () => ServerConfigDialog.show(context),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Center(
@@ -101,16 +109,37 @@ class _SignupScreenState extends State<SignupScreen> {
                         color: theme.colorScheme.errorContainer,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Icon(Icons.error_outline, color: theme.colorScheme.onErrorContainer),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: TextStyle(color: theme.colorScheme.onErrorContainer),
-                            ),
+                          Row(
+                            children: [
+                              Icon(Icons.error_outline, color: theme.colorScheme.onErrorContainer),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                                ),
+                              ),
+                            ],
                           ),
+                          if (_errorMessage!.toLowerCase().contains('timeout') ||
+                              _errorMessage!.toLowerCase().contains('connection')) ...[
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: theme.colorScheme.onErrorContainer,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                icon: const Icon(Icons.settings_rounded, size: 16),
+                                label: const Text('Configure Server IP'),
+                                onPressed: () => ServerConfigDialog.show(context),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

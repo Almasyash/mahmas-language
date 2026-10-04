@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/auth/auth_scope.dart';
 import '../../core/models/user_model.dart';
+import '../auth/server_config_dialog.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -21,9 +22,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String _selectedLevel = 'A1';
   String _selectedTimezone = 'UTC';
 
+  static const List<LanguageModel> _defaultFallbackLanguages = [
+    LanguageModel(id: 'ea32166d-485c-4b0e-a0b5-7ccfca10be7c', code: 'en', name: 'English', nativeName: 'English', flagEmoji: '🇬🇧'),
+    LanguageModel(id: 'eb922fb1-e918-42a3-bf66-7bc28836c088', code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', flagEmoji: '🇮🇳'),
+    LanguageModel(id: 'c383294c-80aa-4ef6-a1b9-0b405ed0e1b4', code: 'es', name: 'Spanish', nativeName: 'Español', flagEmoji: '🇪🇸'),
+    LanguageModel(id: 'cffd17f5-413d-4fcb-ab58-21b04ac340d7', code: 'fr', name: 'French', nativeName: 'Français', flagEmoji: '🇫🇷'),
+    LanguageModel(id: '5b962716-d1c7-40cb-b6d3-fc837cbd6986', code: 'de', name: 'German', nativeName: 'Deutsch', flagEmoji: '🇩🇪'),
+    LanguageModel(id: 'b538fd7f-41a9-4c4f-ae1e-82f662dbc373', code: 'ar', name: 'Arabic', nativeName: 'العربية', flagEmoji: '🇸🇦'),
+    LanguageModel(id: 'b5addf68-bbca-404e-bcec-4c2286124435', code: 'ja', name: 'Japanese', nativeName: '日本語', flagEmoji: '🇯🇵'),
+    LanguageModel(id: '31b8b81e-4f2b-4bb9-b176-053b5e39f35c', code: 'ko', name: 'Korean', nativeName: '한국어', flagEmoji: '🇰🇷'),
+    LanguageModel(id: 'f8ded5ea-afa3-40fb-b55f-8b54479729de', code: 'zh', name: 'Mandarin Chinese', nativeName: '中文', flagEmoji: '🇨🇳'),
+    LanguageModel(id: 'bd3b73cc-06ff-4032-9474-09ce689045b9', code: 'it', name: 'Italian', nativeName: 'Italiano', flagEmoji: '🇮🇹'),
+    LanguageModel(id: '6857d6dd-eece-4241-9fbd-742a3d4b47d7', code: 'pt', name: 'Portuguese', nativeName: 'Português', flagEmoji: '🇧🇷'),
+    LanguageModel(id: '744101c5-03d9-40c5-9cfb-de3977ed89f3', code: 'ru', name: 'Russian', nativeName: 'Русский', flagEmoji: '🇷🇺'),
+  ];
+
   List<LanguageModel> _availableLanguages = [];
   bool _isLoadingLanguages = true;
   bool _isSubmitting = false;
+  bool _initialized = false;
   String? _errorMessage;
 
   final List<Map<String, dynamic>> _learningGoals = [
@@ -109,8 +126,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchLanguages();
     _detectLocalTimezone();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      _fetchLanguages();
+    }
   }
 
   void _detectLocalTimezone() {
@@ -129,15 +154,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _fetchLanguages() async {
-    final authNotifier = AuthScope.of(context);
-    final res = await authNotifier.apiClient.get<List<dynamic>>('/languages');
+    setState(() {
+      _isLoadingLanguages = true;
+      _errorMessage = null;
+    });
 
-    if (mounted) {
-      if (res.success && res.data != null) {
+    try {
+      final authNotifier = AuthScope.of(context);
+      final res = await authNotifier.apiClient.get<List<dynamic>>('/languages');
+
+      if (mounted) {
+        List<LanguageModel> languages = [];
+
+        if (res.success && res.data != null) {
+          for (final raw in res.data!) {
+            if (raw is Map) {
+              languages.add(LanguageModel.fromJson(Map<String, dynamic>.from(raw)));
+            }
+          }
+        }
+
+        if (languages.isEmpty) {
+          languages = List.from(_defaultFallbackLanguages);
+        }
+
         setState(() {
-          _availableLanguages = res.data!
-              .map((item) => LanguageModel.fromJson(item as Map<String, dynamic>))
-              .toList();
+          _availableLanguages = languages;
           _isLoadingLanguages = false;
 
           // Default recommendations
@@ -152,10 +194,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             );
           }
         });
-      } else {
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
+          _availableLanguages = List.from(_defaultFallbackLanguages);
           _isLoadingLanguages = false;
-          _errorMessage = res.errorMessage ?? 'Could not load languages list';
+          if (_availableLanguages.isNotEmpty) {
+            _selectedNativeLanguage = _availableLanguages.firstWhere(
+              (l) => l.code == 'hi' || l.code == 'en',
+              orElse: () => _availableLanguages.first,
+            );
+            _selectedTargetLanguage = _availableLanguages.firstWhere(
+              (l) => l.code != _selectedNativeLanguage?.code,
+              orElse: () => _availableLanguages.last,
+            );
+          }
         });
       }
     }
@@ -258,6 +312,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             : null,
         title: Text('Step ${_currentStep + 1} of $_totalSteps'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.dns_outlined),
+            tooltip: 'Server Settings',
+            onPressed: () => ServerConfigDialog.show(context),
+          ),
           TextButton(
             onPressed: () {
               AuthScope.of(context).logout();

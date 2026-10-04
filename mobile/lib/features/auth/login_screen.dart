@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/auth/auth_scope.dart';
 import '../../core/config/app_config.dart';
 import '../../core/routing/app_router.dart';
+import 'server_config_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -78,10 +79,21 @@ class _LoginScreenState extends State<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.dns_outlined),
+            tooltip: 'Server Settings',
+            onPressed: () => ServerConfigDialog.show(context),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
             child: Form(
               key: _formKey,
               child: Column(
@@ -131,16 +143,37 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: theme.colorScheme.errorContainer,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Icon(Icons.error_outline, color: theme.colorScheme.onErrorContainer),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: TextStyle(color: theme.colorScheme.onErrorContainer),
-                            ),
+                          Row(
+                            children: [
+                              Icon(Icons.error_outline, color: theme.colorScheme.onErrorContainer),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                                ),
+                              ),
+                            ],
                           ),
+                          if (_errorMessage!.toLowerCase().contains('timeout') ||
+                              _errorMessage!.toLowerCase().contains('connection')) ...[
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: theme.colorScheme.onErrorContainer,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                icon: const Icon(Icons.settings_rounded, size: 16),
+                                label: const Text('Configure Server IP'),
+                                onPressed: () => ServerConfigDialog.show(context),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

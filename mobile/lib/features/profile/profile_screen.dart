@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/auth/auth_scope.dart';
 import '../../core/models/progression_model.dart';
+import '../../core/models/user_model.dart';
 import '../../core/repositories/progression_repository.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _nameController = TextEditingController();
   final _bioController = TextEditingController();
   int _selectedDailyMinutes = 15;
+  String? _selectedTargetLanguageId;
 
   List<AchievementModel> _achievements = [];
   bool _isLoadingAchievements = true;
@@ -55,6 +57,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _nameController.text = user.displayName;
       _bioController.text = user.bio ?? '';
       _selectedDailyMinutes = user.dailyMinutesGoal;
+      _selectedTargetLanguageId = user.targetLanguage?.id;
     }
   }
 
@@ -75,6 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       displayName: _nameController.text.trim(),
       bio: _bioController.text.trim(),
       dailyMinutesGoal: _selectedDailyMinutes,
+      targetLanguageId: _selectedTargetLanguageId,
     );
 
     if (mounted) {
@@ -118,6 +122,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _nameController.text = user.displayName;
                   _bioController.text = user.bio ?? '';
                   _selectedDailyMinutes = user.dailyMinutesGoal;
+                  _selectedTargetLanguageId = user.targetLanguage?.id;
                 });
               },
             )
@@ -227,11 +232,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'Native Language',
                       value: '${user.nativeLanguage?.flagEmoji ?? "🌐"} ${user.nativeLanguage?.name ?? "Not set"}',
                     ),
-                    _buildInfoTile(
-                      icon: Icons.school_outlined,
-                      title: 'Target Language',
-                      value: '${user.targetLanguage?.flagEmoji ?? "🌐"} ${user.targetLanguage?.name ?? "Not set"}',
-                    ),
+                    if (!_isEditing)
+                      _buildInfoTile(
+                        icon: Icons.school_outlined,
+                        title: 'Target Language',
+                        value: '${user.targetLanguage?.flagEmoji ?? "🌐"} ${user.targetLanguage?.name ?? "Not set"}',
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.school_outlined, size: 22),
+                                SizedBox(width: 12),
+                                Text('Target Language', style: TextStyle(fontWeight: FontWeight.w500)),
+                              ],
+                            ),
+                            DropdownButton<String>(
+                              value: _selectedTargetLanguageId,
+                              items: LanguageModel.supportedLanguages
+                                  .where((l) => l.id != user.nativeLanguage?.id)
+                                  .map((lang) => DropdownMenuItem(
+                                        value: lang.id,
+                                        child: Text('${lang.flagEmoji ?? ""} ${lang.name}'),
+                                      ))
+                                  .toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() {
+                                    _selectedTargetLanguageId = val;
+                                  });
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                     _buildInfoTile(
                       icon: Icons.flag_outlined,
                       title: 'Learning Goal',

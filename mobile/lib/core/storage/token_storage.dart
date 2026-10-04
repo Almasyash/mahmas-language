@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class TokenStorage {
   static const String _keyAccessToken = 'mahmas_access_token';
   static const String _keyRefreshToken = 'mahmas_refresh_token';
+  static const String _keyServerUrl = 'mahmas_server_url';
 
   final FlutterSecureStorage? _storage;
   final Map<String, String> _memoryStorage;
@@ -52,5 +53,28 @@ class TokenStorage {
     }
     await _storage.delete(key: _keyAccessToken);
     await _storage.delete(key: _keyRefreshToken);
+  }
+
+  Future<void> saveServerUrl(String serverUrl) async {
+    if (_storage == null) {
+      _memoryStorage[_keyServerUrl] = serverUrl;
+      return;
+    }
+    await _storage.write(key: _keyServerUrl, value: serverUrl);
+  }
+
+  Future<String?> getServerUrl() async {
+    if (_storage == null) {
+      return _memoryStorage[_keyServerUrl];
+    }
+    return await _storage.read(key: _keyServerUrl);
+  }
+
+  Future<void> clearServerUrl() async {
+    if (_storage == null) {
+      _memoryStorage.remove(_keyServerUrl);
+      return;
+    }
+    await _storage.delete(key: _keyServerUrl);
   }
 }

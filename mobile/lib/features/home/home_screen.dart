@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import '../../core/auth/auth_scope.dart';
 import '../../core/models/progression_model.dart';
+import '../../core/models/user_model.dart';
 import '../../core/repositories/progression_repository.dart';
 import '../lessons/lesson_runner_screen.dart';
 import '../practice/practice_runner_screen.dart';
@@ -158,24 +159,142 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(targetLangFlag, style: const TextStyle(fontSize: 22)),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                targetLangName,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                overflow: TextOverflow.ellipsis,
-              ),
+        title: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: _showLanguageSelectorDialog,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(targetLangFlag, style: const TextStyle(fontSize: 22)),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    targetLangName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_drop_down_rounded, size: 24),
+              ],
             ),
-          ],
+          ),
         ),
         actions: _buildHeaderPills(),
       ),
       body: _buildDashboardBody(theme),
       bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  void _showLanguageSelectorDialog() {
+    final authNotifier = AuthScope.of(context);
+    final currentTargetId = _dashboard?.user.targetLanguage?.id;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (context, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade600,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Select Target Language',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Switching courses preserves all your existing progress.',
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  Expanded(
+                    child: Builder(
+                      builder: (context) {
+                        final availableLangs = LanguageModel.supportedLanguages
+                            .where((l) =>
+                                l.id != _dashboard?.user.nativeLanguage?.id &&
+                                l.name != _dashboard?.user.nativeLanguage?.name)
+                            .toList();
+
+                        return ListView.builder(
+                          controller: scrollController,
+                          itemCount: availableLangs.length,
+                          itemBuilder: (context, index) {
+                            final lang = availableLangs[index];
+                            final isSelected = lang.id == currentTargetId || lang.name == _dashboard?.user.targetLanguage?.name;
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.blue.withValues(alpha: 0.15) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected ? Colors.blueAccent : Colors.grey.withValues(alpha: 0.2),
+                              width: isSelected ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: ListTile(
+                            leading: Text(lang.flagEmoji ?? '🌐', style: const TextStyle(fontSize: 26)),
+                            title: Text(lang.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text(lang.nativeName ?? lang.code),
+                            trailing: isSelected
+                                ? const Icon(Icons.check_circle, color: Colors.blueAccent)
+                                : null,
+                            onTap: () async {
+                              Navigator.of(ctx).pop();
+                              if (!isSelected) {
+                                final success = await authNotifier.updateProfile(targetLanguageId: lang.id);
+                                if (success && mounted) {
+                                  ScaffoldMessenger.of(this.context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: Colors.blueAccent.shade700,
+                                      content: Text('Switched learning course to ${lang.name}'),
+                                    ),
+                                  );
+                                  _loadDashboard();
+                                }
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -758,9 +877,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return NavigationBar(
       selectedIndex: _selectedIndex,
       onDestinationSelected: (index) {
+        final wasDifferent = _selectedIndex != index;
         setState(() {
           _selectedIndex = index;
         });
+        if (index == 0 && wasDifferent) {
+          _loadDashboard();
+        }
       },
       destinations: const [
         NavigationDestination(
