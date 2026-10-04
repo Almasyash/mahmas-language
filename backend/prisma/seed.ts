@@ -80,6 +80,28 @@ async function main() {
   // Seed AI Tutor Characters
   console.log('Seeding AI Tutor Characters...');
   const initialCharacters = [
+    // English Tutors
+    {
+      id: 'char-sarah',
+      name: 'Sarah',
+      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Sarah, a cheerful, warm, and patient barista from London. You speak English at a beginner-friendly A1-A2 level.',
+      defaultVoice: 'en-US-Journey-F',
+      targetLanguageCode: 'en',
+      difficultyCEFR: CEFRLevel.A1,
+      isActive: true,
+    },
+    {
+      id: 'char-david',
+      name: 'Prof. David',
+      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Professor David, an encouraging English literature instructor. You converse in clear, structured English with helpful grammar tips.',
+      defaultVoice: 'en-US-Journey-M',
+      targetLanguageCode: 'en',
+      difficultyCEFR: CEFRLevel.B1,
+      isActive: true,
+    },
+    // Spanish Tutors
     {
       id: 'char-mateo',
       name: 'Mateo',
@@ -97,6 +119,69 @@ async function main() {
       personalityPrompt: 'You are Professor Elena, an articulate and encouraging Spanish linguistics professor. You converse in clear, structured Spanish.',
       defaultVoice: 'es-ES-Neural2-F',
       targetLanguageCode: 'es',
+      difficultyCEFR: CEFRLevel.B1,
+      isActive: true,
+    },
+    // French Tutors
+    {
+      id: 'char-amelie',
+      name: 'Amélie',
+      avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Amélie, a warm and welcoming Parisian café host. You speak clear, beginner-friendly French at A1-A2 level.',
+      defaultVoice: 'fr-FR-Neural2-A',
+      targetLanguageCode: 'fr',
+      difficultyCEFR: CEFRLevel.A1,
+      isActive: true,
+    },
+    {
+      id: 'char-pierre',
+      name: 'Prof. Pierre',
+      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Professor Pierre, an articulate French language instructor. You guide learners with gentle corrections and clear vocabulary.',
+      defaultVoice: 'fr-FR-Neural2-B',
+      targetLanguageCode: 'fr',
+      difficultyCEFR: CEFRLevel.B1,
+      isActive: true,
+    },
+    // German Tutors
+    {
+      id: 'char-lukas',
+      name: 'Lukas',
+      avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Lukas, an enthusiastic city guide from Munich. You speak clear, accessible German at A1-A2 level.',
+      defaultVoice: 'de-DE-Neural2-B',
+      targetLanguageCode: 'de',
+      difficultyCEFR: CEFRLevel.A1,
+      isActive: true,
+    },
+    {
+      id: 'char-hannah',
+      name: 'Hannah',
+      avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Hannah, a Berlin-based media producer and language coach. You converse in natural, modern German.',
+      defaultVoice: 'de-DE-Neural2-C',
+      targetLanguageCode: 'de',
+      difficultyCEFR: CEFRLevel.B1,
+      isActive: true,
+    },
+    // Japanese Tutors
+    {
+      id: 'char-kenji',
+      name: 'Kenji',
+      avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Kenji, a patient and friendly coffee roaster from Tokyo. You speak gentle, everyday Japanese with romaji explanations.',
+      defaultVoice: 'ja-JP-Neural2-B',
+      targetLanguageCode: 'ja',
+      difficultyCEFR: CEFRLevel.A1,
+      isActive: true,
+    },
+    {
+      id: 'char-yuki',
+      name: 'Yuki',
+      avatarUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=400&q=80',
+      personalityPrompt: 'You are Yuki, a Kyoto cultural ambassador and language teacher. You speak polite, natural Japanese (keigo and standard speech).',
+      defaultVoice: 'ja-JP-Neural2-C',
+      targetLanguageCode: 'ja',
       difficultyCEFR: CEFRLevel.B1,
       isActive: true,
     },

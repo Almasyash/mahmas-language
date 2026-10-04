@@ -3,7 +3,7 @@
 // Conversational AI tutor orchestration, pedagogical feedback, memory, & rewards
 // ==============================================================================
 
-import { CEFRLevel } from '@prisma/client';
+import { AICharacter, CEFRLevel } from '@prisma/client';
 import { prisma } from '../../database/prisma';
 import { NotFoundError, BadRequestError } from '../../common/errors';
 import { AIProviderFactory } from './ai-provider.adapter';
@@ -61,6 +61,101 @@ interface VideoCallSessionState {
 export class AIService {
   private aiProvider = AIProviderFactory.getProvider();
   private activeVideoCalls = new Map<string, VideoCallSessionState>();
+
+  private getOpeningGreeting(character: AICharacter, modality: 'chat' | 'voice' | 'video'): string {
+    const lang = (character.targetLanguageCode || 'es').toLowerCase();
+    const name = character.name;
+
+    if (lang === 'en' || lang === 'english') {
+      if (name.includes('Sarah')) {
+        if (modality === 'voice') return "Hello! I can hear you loud and clear. Welcome to the café! How are you doing today?";
+        if (modality === 'video') return "Hello! Wonderful to see you face-to-face on video call. Everything looks and sounds great. How are you today?";
+        return "Hello! Welcome to the café. I'm Sarah, and I'm so glad to chat with you today! How are you doing?";
+      }
+      if (name.includes('David')) {
+        if (modality === 'voice') return "Good day! Professor David here. The audio connection is splendid. What topic shall we discuss today?";
+        if (modality === 'video') return "Greetings! Professor David here. Delighted to meet you via video. What area of English would you like to explore today?";
+        return "Good day! I am Professor David. It is a pleasure to assist you on your English journey. What would you like to practice today?";
+      }
+      if (modality === 'voice') return "Hello! I can hear you clearly. How are you today?";
+      if (modality === 'video') return "Hello! Great to connect with you over video call. How are you today?";
+      return "Hello! It is a pleasure to meet you. What would you like to talk about today?";
+    }
+
+    if (lang === 'fr' || lang === 'french') {
+      if (name.includes('Amélie') || name.includes('Amelie')) {
+        if (modality === 'voice') return "Bonjour ! Je vous entends parfaitement. Bienvenue au café parisien ! Comment allez-vous aujourd'hui ?";
+        if (modality === 'video') return "Bonjour ! Quel plaisir de vous voir en direct par appel vidéo. Comment allez-vous aujourd'hui ?";
+        return "Bonjour ! Bienvenue au café parisien. Je suis Amélie, ravie de faire votre connaissance ! Comment ça va aujourd'hui ?";
+      }
+      if (name.includes('Pierre')) {
+        if (modality === 'voice') return "Bonjour ! Professeur Pierre à l'appareil. Le son est excellent. De quel sujet souhaitez-vous débattre aujourd'hui ?";
+        if (modality === 'video') return "Bonjour ! C'est un réel plaisir de vous retrouver par vidéo pour cette séance de français. Commençons-nous ?";
+        return "Bonjour ! C'est un grand plaisir de vous accompagner dans votre apprentissage du français. De quel sujet souhaitez-vous discuter ?";
+      }
+      if (modality === 'voice') return "Bonjour ! Je vous entends très bien. Comment allez-vous aujourd'hui ?";
+      if (modality === 'video') return "Bonjour ! Ravi de vous voir par appel vidéo. De quoi aimerions-nous parler ?";
+      return "Bonjour ! C'est un plaisir d'échanger avec vous. De quoi aimeriez-vous parler aujourd'hui ?";
+    }
+
+    if (lang === 'de' || lang === 'german') {
+      if (name.includes('Lukas')) {
+        if (modality === 'voice') return "Hallo! Ich kann dich laut und deutlich hören. Willkommen in München! Wie geht es dir heute?";
+        if (modality === 'video') return "Hallo! Wie schön, dich per Videoanruf von Angesicht zu Angesicht zu sehen! Wie geht es dir?";
+        return "Hallo! Willkommen in München. Ich bin Lukas und freue mich sehr darauf, mich mit dir zu unterhalten. Wie geht es dir heute?";
+      }
+      if (name.includes('Hannah')) {
+        if (modality === 'voice') return "Guten Tag! Die Verbindung steht super. Ich freue mich darauf, heute mit dir Deutsch zu üben. Worüber möchtest du sprechen?";
+        if (modality === 'video') return "Guten Tag! Schön, dich im Videoanruf zu sehen. Bereit für ein spannendes Gespräch auf Deutsch?";
+        return "Guten Tag! Schön, dich kennenzulernen. Ich bin Hannah und freue mich darauf, heute mit dir Deutsch zu üben. Worüber möchtest du sprechen?";
+      }
+      if (modality === 'voice') return "Hallo! Ich kann dich gut hören. Wie geht es dir heute?";
+      if (modality === 'video') return "Hallo! Schön, dich im Videoanruf zu sehen. Worüber sprechen wir heute?";
+      return "Hallo! Schön, dass du da bist. Worüber möchtest du heute sprechen?";
+    }
+
+    if (lang === 'ja' || lang === 'japanese') {
+      if (name.includes('Kenji')) {
+        if (modality === 'voice') return "こんにちは！声がしっかり聞こえていますよ。通話でお話しできて嬉しいです。今日はいかがですか？";
+        if (modality === 'video') return "こんにちは！ビデオ通話でお顔を見ながらお話しできて嬉しいです。今日はいかがお過ごしですか？";
+        return "こんにちは！ケンジです。お会いできて嬉しいです。今日はどんなことについて話しましょうか？";
+      }
+      if (name.includes('Yuki')) {
+        if (modality === 'voice') return "こんにちは！ユキです。音声通話がつながりましたね。日本語の練習、ご一緒できて光栄です。";
+        if (modality === 'video') return "こんにちは！ビデオ通話でお会いできて嬉しいです。楽しく日本語を練習しましょうね。";
+        return "こんにちは！ユキと申します。日本語の学習をご一緒できて光栄です。今日はいかがお過ごしですか？";
+      }
+      if (modality === 'voice') return "こんにちは！声がよく聞こえます。今日はいかがですか？";
+      if (modality === 'video') return "こんにちは！ビデオ通話でお話しできて嬉しいです。";
+      return "こんにちは！お話しできて嬉しいです。今日はどんな話をしましょうか？";
+    }
+
+    // Default: Spanish (es)
+    if (name.includes('Mateo')) {
+      if (modality === 'voice') return "¡Hola amigo! Bienvenido al café. Te escucho alto y claro. ¿Qué te gustaría tomar hoy o de qué te apetece charlar?";
+      if (modality === 'video') return "¡Hola amigo! Qué alegría saludarte por video. Bienvenido a mi café. ¡Mira qué día tan bueno hace hoy! ¿Te apetece charlar un rato?";
+      return "¡Hola amigo! Bienvenido a la cafetería. ¿Qué tal tu día? ¿Te sirvo un café con leche mientras conversamos?";
+    }
+    if (name.includes('Elena')) {
+      if (modality === 'voice') return "¡Buenos días! Es un verdadero placer saludarte por voz. Estoy lista para conversar y ayudarte con tu pronunciación y fluidez. ¿De qué tema hablaremos hoy?";
+      if (modality === 'video') return "¡Buenos días! Es un placer compartir esta sesión de videollamada contigo. Podremos practicar la articulación y la expresión visual en español. ¿Comenzamos?";
+      return "¡Buenos días! Es un placer compartir este espacio de práctica contigo. ¿Qué tema cultural o lingüístico deseas explorar hoy?";
+    }
+    if (name.includes('Sofia')) {
+      if (modality === 'voice') return "¡Hola viajero! Qué alegría conectar contigo por llamada. Cuéntame, ¿qué tal tu día y qué aventuras tienes en mente?";
+      if (modality === 'video') return "¡Hola! Qué ilusión verte en video. Justo estaba revisando mi mapa de viaje. ¡Qué bien tener compañía para practicar español!";
+      return "¡Hola! Qué emoción conocerte. Estoy planificando mi próximo viaje por Latinoamérica. ¿A ti te gusta viajar?";
+    }
+    if (name.includes('Alex')) {
+      if (modality === 'voice') return "¡Hola! Me alegro de saludarte. La llamada suena perfecta. ¿Cómo va tu día y tus proyectos tecnológicos?";
+      if (modality === 'video') return "¡Hola! Qué tal, qué buena conexión de video tenemos. Me alegra saludarte cara a cara entre reunión y reunión.";
+      return "¡Hola! ¿Cómo va todo? Me alegra tener un momento libre entre proyectos para practicar español contigo.";
+    }
+
+    if (modality === 'voice') return "¡Hola! Te escucho perfectamente. ¿Cómo estás hoy?";
+    if (modality === 'video') return "¡Hola! Qué gusto verte cara a cara por videollamada. Te veo y te escucho de maravilla. ¿Qué tal estás hoy?";
+    return "¡Hola! Es un gusto saludarte. ¿De qué te gustaría que hablemos hoy?";
+  }
 
   /**
    * Lists available AI tutor characters, optionally filtered by language and CEFR difficulty.
@@ -136,16 +231,7 @@ export class AIService {
     });
 
     // Generate initial persona-aligned greeting message
-    let welcomeGreeting = '¡Hola! Es un gusto saludarte. ¿De qué te gustaría que hablemos hoy?';
-    if (character.name.includes('Mateo')) {
-      welcomeGreeting = '¡Hola amigo! Bienvenido a la cafetería. ¿Qué tal tu día? ¿Te sirvo un café con leche mientras conversamos?';
-    } else if (character.name.includes('Elena')) {
-      welcomeGreeting = '¡Buenos días! Es un placer compartir este espacio de práctica contigo. ¿Qué tema cultural o lingüístico deseas explorar hoy?';
-    } else if (character.name.includes('Sofia')) {
-      welcomeGreeting = '¡Hola! Qué emoción conocerte. Estoy planificando mi próximo viaje por Latinoamérica. ¿A ti te gusta viajar?';
-    } else if (character.name.includes('Alex')) {
-      welcomeGreeting = '¡Hola! ¿Cómo va todo? Me alegra tener un momento libre entre proyectos para practicar español contigo.';
-    }
+    const welcomeGreeting = this.getOpeningGreeting(character, 'chat');
 
     // Persist assistant's opening turn
     await prisma.aIMessage.create({
@@ -520,16 +606,7 @@ export class AIService {
     const callId = `call-${conversation.id}`;
 
     // 2. Generate persona-aligned voice greeting
-    let greetingText = `¡Hola! Me alegro mucho de hablar contigo por llamada. Te escucho perfectamente. ¿Cómo estás hoy?`;
-    if (character.name.includes('Mateo')) {
-      greetingText = `¡Hola amigo! Bienvenido al café. Te escucho alto y claro. ¿Qué te gustaría tomar hoy o de qué te apetece charlar?`;
-    } else if (character.name.includes('Elena')) {
-      greetingText = `¡Buenos días! Es un verdadero placer saludarte por voz. Estoy lista para conversar y ayudarte con tu pronunciación y fluidez. ¿De qué tema hablaremos hoy?`;
-    } else if (character.name.includes('Sofia')) {
-      greetingText = `¡Hola viajero! Qué alegría conectar contigo por llamada. Cuéntame, ¿qué tal tu día y qué aventuras tienes en mente?`;
-    } else if (character.name.includes('Alex')) {
-      greetingText = `¡Hola! Me alegro de saludarte. La llamada suena perfecta. ¿Cómo va tu día y tus proyectos tecnológicos?`;
-    }
+    const greetingText = this.getOpeningGreeting(character, 'voice');
 
     // 3. Synthesize speech for the greeting
     const speechResult = await this.aiProvider.generateSpeech(
@@ -640,11 +717,18 @@ export class AIService {
       value: m.memoryValue,
     }));
 
-    // 4. Generate conversational reply
+    // 4. Retrieve learner profile for native language context
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    const nativeLang = user?.profile?.nativeLanguageId || 'en';
+
+    // 5. Generate conversational reply
     const replyResult = await this.aiProvider.generateReply({
       targetLanguage: character.targetLanguageCode,
-      nativeLanguage: 'en',
-      cefrLevel: character.difficultyCEFR,
+      nativeLanguage: nativeLang,
+      cefrLevel: user?.profile?.currentLevel || character.difficultyCEFR,
       characterName: character.name,
       personalityPrompt: character.personalityPrompt,
       topic: conversation?.topic || undefined,
@@ -917,16 +1001,7 @@ export class AIService {
     const callId = `vcall-${conversation.id}`;
 
     // 2. Generate persona-aligned video greeting
-    let greetingText = `¡Hola! Qué gusto verte cara a cara por videollamada. Te veo y te escucho de maravilla. ¿Qué tal estás hoy?`;
-    if (character.name.includes('Mateo')) {
-      greetingText = `¡Hola amigo! Qué alegría saludarte por video. Bienvenido a mi café. ¡Mira qué día tan bueno hace hoy! ¿Te apetece charlar un rato?`;
-    } else if (character.name.includes('Elena')) {
-      greetingText = `¡Buenos días! Es un placer compartir esta sesión de videollamada contigo. Podremos practicar la articulación y la expresión visual en español. ¿Comenzamos?`;
-    } else if (character.name.includes('Sofia')) {
-      greetingText = `¡Hola! Qué ilusión verte en video. Justo estaba revisando mi mapa de viaje. ¡Qué bien tener compañía para practicar español!`;
-    } else if (character.name.includes('Alex')) {
-      greetingText = `¡Hola! Qué tal, qué buena conexión de video tenemos. Me alegra saludarte cara a cara entre reunión y reunión.`;
-    }
+    const greetingText = this.getOpeningGreeting(character, 'video');
 
     // 3. Synthesize speech for greeting
     const speechResult = await this.aiProvider.generateSpeech(
@@ -1059,11 +1134,18 @@ export class AIService {
       value: mem.memoryValue,
     }));
 
-    // 4. Generate AI pedagogical reply
+    // 4. Retrieve learner profile for native language context
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    const nativeLang = user?.profile?.nativeLanguageId || 'en';
+
+    // 5. Generate AI pedagogical reply
     const replyResult = await this.aiProvider.generateReply({
       targetLanguage: character.targetLanguageCode,
-      nativeLanguage: 'English',
-      cefrLevel: character.difficultyCEFR,
+      nativeLanguage: nativeLang,
+      cefrLevel: user?.profile?.currentLevel || character.difficultyCEFR,
       characterName: character.name,
       personalityPrompt: character.personalityPrompt,
       memories,

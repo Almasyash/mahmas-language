@@ -106,10 +106,36 @@ export class MockAIProviderAdapter implements IAIProviderAdapter {
     const rawInput = context.latestUserMessage.trim();
     const lowerInput = rawInput.toLowerCase();
 
+    const lang = (context.targetLanguage || 'es').toLowerCase();
+    const name = context.characterName;
+
     // 1. Check for common learner mistakes & pedagogical corrections
     let correctionNote: string | null = null;
 
-    if (context.targetLanguage === 'es' || context.targetLanguage === 'Spanish') {
+    if (lang === 'en' || lang === 'english') {
+      if (lowerInput.includes('i want learn') || lowerInput.includes('i want study')) {
+        correctionNote = 'Pedagogical tip: Say "I want to learn" (remember to include "to" before the infinitive verb).';
+      } else if (lowerInput.includes('i have 20 years') || lowerInput.includes('i have 25 years')) {
+        correctionNote = 'Pedagogical tip: In English, age is expressed with "to be" — say "I am 20 years old", not "I have".';
+      } else if (lowerInput.includes('he don\'t') || lowerInput.includes('she don\'t')) {
+        correctionNote = 'Pedagogical tip: Use "doesn\'t" with third-person singular (he/she/it).';
+      } else if (lowerInput.includes('i am agree')) {
+        correctionNote = 'Pedagogical tip: Say "I agree", rather than "I am agree".';
+      }
+    } else if (lang === 'fr' || lang === 'french') {
+      if (lowerInput.includes('je suis bien') && (lowerInput.includes('comment') || lowerInput.includes('ça va'))) {
+        correctionNote = 'Astuce pédagogique : Pour répondre à comment ça va, dites plutôt « Je vais bien » que « Je suis bien ».';
+      } else if (lowerInput.includes('je vouloir')) {
+        correctionNote = 'Astuce pédagogique : Dites « Je veux » au présent de l\'indicatif.';
+      }
+    } else if (lang === 'de' || lang === 'german') {
+      if (lowerInput.includes('ich will zu')) {
+        correctionNote = 'Pädagogischer Tipp: Nach Modalverben wie « wollen » steht der Infinitiv ohne « zu ».';
+      } else if (lowerInput.includes('ich bin ein student')) {
+        correctionNote = 'Pädagogischer Tipp: Berufsbezeichnungen verwendet man im Deutschen meist ohne Artikel (« Ich bin Student »).';
+      }
+    } else {
+      // Spanish default
       if (lowerInput.includes('yo querer')) {
         correctionNote = 'Pedagogical tip: Say "Yo quiero" instead of "Yo querer" (conjugate the verb in the present tense).';
       } else if (lowerInput.includes('el casa') || lowerInput.includes('un casa')) {
@@ -120,72 +146,139 @@ export class MockAIProviderAdapter implements IAIProviderAdapter {
         correctionNote = 'Pedagogical tip: In present tense, say "Yo tengo" instead of "Yo tener".';
       } else if (lowerInput.includes('gracias you') || lowerInput.includes('thank you')) {
         correctionNote = 'Pedagogical tip: In Spanish, simply say "Muchas gracias" or "Gracias".';
-      } else if (lowerInput.length > 5 && !/[áéíóúñ¿¡a-z]/i.test(lowerInput)) {
-        correctionNote = 'Pedagogical tip: Try expressing your thoughts using basic Spanish words.';
       }
     }
 
     // 2. Extract episodic memory facts from conversational statements
     const newMemories: { key: string; value: string }[] = [];
+
+    // English memories
+    const enLikesMatch = lowerInput.match(/i like ([a-z\s]+)/i);
+    if (enLikesMatch && enLikesMatch[1]) newMemories.push({ key: 'LIKES', value: enLikesMatch[1].trim() });
+    const enIdentityMatch = lowerInput.match(/i am (a |an )?([a-z\s]+)/i);
+    if (enIdentityMatch && enIdentityMatch[2]) newMemories.push({ key: 'IDENTITY', value: enIdentityMatch[2].trim() });
+    const enLocationMatch = lowerInput.match(/i live in ([a-z\s]+)/i);
+    if (enLocationMatch && enLocationMatch[1]) newMemories.push({ key: 'LOCATION', value: enLocationMatch[1].trim() });
+
+    // Spanish memories
     const meGustaMatch = lowerInput.match(/me gusta ([a-záéíóúñ\s]+)/i);
-    if (meGustaMatch && meGustaMatch[1]) {
-      const hobbyOrItem = meGustaMatch[1].trim();
-      newMemories.push({ key: 'LIKES', value: hobbyOrItem });
-    }
-
+    if (meGustaMatch && meGustaMatch[1]) newMemories.push({ key: 'LIKES', value: meGustaMatch[1].trim() });
     const soyMatch = lowerInput.match(/soy ([a-záéíóúñ\s]+)/i);
-    if (soyMatch && soyMatch[1]) {
-      const identity = soyMatch[1].trim();
-      newMemories.push({ key: 'IDENTITY', value: identity });
-    }
-
+    if (soyMatch && soyMatch[1]) newMemories.push({ key: 'IDENTITY', value: soyMatch[1].trim() });
     const vivoEnMatch = lowerInput.match(/vivo en ([a-záéíóúñ\s]+)/i);
-    if (vivoEnMatch && vivoEnMatch[1]) {
-      const city = vivoEnMatch[1].trim();
-      newMemories.push({ key: 'LOCATION', value: city });
-    }
+    if (vivoEnMatch && vivoEnMatch[1]) newMemories.push({ key: 'LOCATION', value: vivoEnMatch[1].trim() });
+
+    // French memories
+    const frJaimeMatch = lowerInput.match(/j'aime ([a-zàâéèêëîïôùûüç\s]+)/i);
+    if (frJaimeMatch && frJaimeMatch[1]) newMemories.push({ key: 'LIKES', value: frJaimeMatch[1].trim() });
 
     // 3. Generate persona-aligned conversational response
-    const name = context.characterName;
     let reply = '';
 
-    if (name.includes('Mateo')) {
-      // Friendly Madrid Barista persona
-      if (lowerInput.includes('hola') || lowerInput.includes('buenos')) {
-        reply = '¡Hola amigo! Bienvenido al café. ¿Qué te apetece tomar hoy? Tenemos café con leche delicioso y croissants recién hechos.';
-      } else if (lowerInput.includes('café') || lowerInput.includes('cafe') || lowerInput.includes('quiero') || lowerInput.includes('querer')) {
-        reply = '¡Excelente elección! Un buen café siempre alegra el día. ¿Te gusta con azúcar o prefieres probarlo solo?';
-      } else if (lowerInput.includes('gracias')) {
-        reply = '¡De nada, qué amable! Es un placer atenderte. ¿Cómo va tu día en la ciudad?';
-      } else if (lowerInput.includes('cómo estás') || lowerInput.includes('como estas')) {
-        reply = '¡Muy bien, gracias por preguntar! Hoy la cafetería tiene un ambiente genial. ¿Y tú, qué planes tienes para hoy?';
+    if (lang === 'en' || lang === 'english') {
+      if (name.includes('Sarah')) {
+        if (lowerInput.includes('hello') || lowerInput.includes('hi') || lowerInput.includes('hey')) {
+          reply = 'Hello! Welcome to the café. Would you like a warm flat white or some Earl Grey tea while we chat? How are you doing today?';
+        } else if (lowerInput.includes('coffee') || lowerInput.includes('tea') || lowerInput.includes('latte')) {
+          reply = 'Splendid choice! Freshly brewed and piping hot. Do you take milk or sugar?';
+        } else if (lowerInput.includes('thank')) {
+          reply = 'You are most welcome! It is a real pleasure chatting with you. Have a wonderful day in London!';
+        } else if (lowerInput.includes('how are you')) {
+          reply = 'I am doing splendidly, thank you! The café is bustling today. What are your plans for the rest of the day?';
+        } else {
+          reply = 'That sounds wonderful! I really enjoy chatting with you while making drinks. Tell me more about that in English!';
+        }
+      } else if (name.includes('David')) {
+        if (lowerInput.includes('hello') || lowerInput.includes('hi') || lowerInput.includes('good')) {
+          reply = 'Good day! Welcome to our English study session. What topic or grammar area would you like to explore today?';
+        } else if (lowerInput.includes('learn') || lowerInput.includes('grammar') || lowerInput.includes('english')) {
+          reply = 'Consistency and clear expression are the cornerstones of language mastery. You are making commendable progress.';
+        } else {
+          reply = 'A very insightful thought. Could you elaborate a bit more on that perspective? You express yourself with great clarity.';
+        }
       } else {
-        reply = `¡Qué interesante! Me encanta conversar contigo mientras preparo los pedidos. Cuéntame más sobre eso en español, lo estás haciendo genial.`;
+        if (lowerInput.includes('hello') || lowerInput.includes('hi')) {
+          reply = 'Hello! Great to connect with you. I am here to help you practice and improve your English. What shall we talk about today?';
+        } else {
+          reply = 'I understand you clearly! Your English practice is coming along very nicely. Tell me more about your daily routine!';
+        }
       }
-    } else if (name.includes('Elena')) {
-      // Academic linguistics professor persona
-      if (lowerInput.includes('hola') || lowerInput.includes('buenos')) {
-        reply = '¡Buenos días! Es un placer compartir esta sesión de conversación contigo. ¿De qué tema te gustaría dialogar hoy?';
-      } else if (lowerInput.includes('gramática') || lowerInput.includes('aprender') || lowerInput.includes('español')) {
-        reply = 'La lengua española tiene una riqueza maravillosa. La clave de la fluidez es la práctica constante y no temer a los errores.';
+    } else if (lang === 'fr' || lang === 'french') {
+      if (name.includes('Amélie')) {
+        if (lowerInput.includes('bonjour') || lowerInput.includes('salut')) {
+          reply = 'Bonjour ! Bienvenue au café parisien. Que puis-je vous servir aujourd\'hui ? Un bon café au lait avec un croissant chaud ?';
+        } else {
+          reply = 'C\'est une excellente idée ! Racontez-moi davantage en français, vous progressez de façon formidable !';
+        }
+      } else if (name.includes('Pierre')) {
+        if (lowerInput.includes('bonjour') || lowerInput.includes('salut')) {
+          reply = 'Bonjour ! C\'est un réel plaisir de vous retrouver pour cette séance de français. De quel sujet souhaiteriez-vous débattre aujourd\'hui ?';
+        } else {
+          reply = 'Je comprends parfaitement votre perspective. Continuez à vous exprimer ainsi, avec nuance et clarté.';
+        }
       } else {
-        reply = `Comprendo perfectamente tu perspectiva. Expresas tus ideas con claridad. ¿Podrías elaborar un poco más sobre las razones de tu opinión?`;
+        reply = 'Bonjour ! C\'est un plaisir d\'échanger avec vous. Continuez à pratiquer votre français avec confiance !';
       }
-    } else if (name.includes('Sofia')) {
-      // Adventurous traveler persona
-      if (lowerInput.includes('hola') || lowerInput.includes('buenos')) {
-        reply = '¡Hola viajero! Acabo de llegar de una excursión increíble en las montañas. ¿Te gusta viajar y conocer nuevos lugares?';
-      } else if (lowerInput.includes('viaj') || lowerInput.includes('país') || lowerInput.includes('ciudad')) {
-        reply = '¡Me encanta! Viajar es la mejor manera de aprender idiomas y conocer culturas. ¿Cuál ha sido tu destino favorito hasta ahora?';
+    } else if (lang === 'de' || lang === 'german') {
+      if (name.includes('Lukas')) {
+        if (lowerInput.includes('hallo') || lowerInput.includes('guten')) {
+          reply = 'Hallo! Willkommen in München. Ich freue mich sehr darauf, mich mit dir zu unterhalten. Wie geht es dir heute?';
+        } else {
+          reply = 'Das ist ja spannend! Erzähl mir gerne mehr darüber auf Deutsch, du machst das wirklich super!';
+        }
+      } else if (name.includes('Hannah')) {
+        if (lowerInput.includes('hallo') || lowerInput.includes('guten')) {
+          reply = 'Guten Tag! Schön, dich kennenzulernen. Bereit für eine interessante Unterhaltung auf Deutsch?';
+        } else {
+          reply = 'Genau so! Deine Aussprache und Grammatik verbessern sich stetig. Worüber möchtest du als Nächstes sprechen?';
+        }
       } else {
-        reply = `¡Qué aventura! Siempre hay algo nuevo por descubrir en cada rincón del mundo. ¿Qué te gustaría explorar en tu próximo viaje?`;
+        reply = 'Hallo! Schön, dass du da bist. Lass uns gemeinsam auf Deutsch weiterüben!';
+      }
+    } else if (lang === 'ja' || lang === 'japanese') {
+      if (name.includes('Kenji')) {
+        reply = 'こんにちは！いらっしゃいませ。温かいコーヒーはいかがですか？今日はいかがお過ごしですか？';
+      } else if (name.includes('Yuki')) {
+        reply = 'こんにちは！ユキと申します。日本語の学習をご一緒できて嬉しいです。今日はどんなことについて話しましょうか？';
+      } else {
+        reply = 'こんにちは！日本語の練習を一緒に頑張りましょう。今日はいかがですか？';
       }
     } else {
-      // Generic encouraging tutor persona
-      if (lowerInput.includes('hola')) {
-        reply = `¡Hola! Qué gusto saludarte. Estoy aquí para ayudarte a practicar y mejorar día a día. ¿Sobre qué te gustaría conversar?`;
+      // Spanish
+      if (name.includes('Mateo')) {
+        if (lowerInput.includes('hola') || lowerInput.includes('buenos')) {
+          reply = '¡Hola amigo! Bienvenido al café. ¿Qué te apetece tomar hoy? Tenemos café con leche delicioso y croissants recién hechos.';
+        } else if (lowerInput.includes('café') || lowerInput.includes('cafe') || lowerInput.includes('quiero') || lowerInput.includes('querer')) {
+          reply = '¡Excelente elección! Un buen café siempre alegra el día. ¿Te gusta con azúcar o prefieres probarlo solo?';
+        } else if (lowerInput.includes('gracias')) {
+          reply = '¡De nada, qué amable! Es un placer atenderte. ¿Cómo va tu día en la ciudad?';
+        } else if (lowerInput.includes('cómo estás') || lowerInput.includes('como estas')) {
+          reply = '¡Muy bien, gracias por preguntar! Hoy la cafetería tiene un ambiente genial. ¿Y tú, qué planes tienes para hoy?';
+        } else {
+          reply = `¡Qué interesante! Me encanta conversar contigo mientras preparo los pedidos. Cuéntame más sobre eso en español, lo estás haciendo genial.`;
+        }
+      } else if (name.includes('Elena')) {
+        if (lowerInput.includes('hola') || lowerInput.includes('buenos')) {
+          reply = '¡Buenos días! Es un placer compartir esta sesión de conversación contigo. ¿De qué tema te gustaría dialogar hoy?';
+        } else if (lowerInput.includes('gramática') || lowerInput.includes('aprender') || lowerInput.includes('español')) {
+          reply = 'La lengua española tiene una riqueza maravillosa. La clave de la fluidez es la práctica constante y no temer a los errores.';
+        } else {
+          reply = `Comprendo perfectamente tu perspectiva. Expresas tus ideas con claridad. ¿Podrías elaborar un poco más sobre las razones de tu opinión?`;
+        }
+      } else if (name.includes('Sofia')) {
+        if (lowerInput.includes('hola') || lowerInput.includes('buenos')) {
+          reply = '¡Hola viajero! Acabo de llegar de una excursión increíble en las montañas. ¿Te gusta viajar y conocer nuevos lugares?';
+        } else if (lowerInput.includes('viaj') || lowerInput.includes('país') || lowerInput.includes('ciudad')) {
+          reply = '¡Me encanta! Viajar es la mejor manera de aprender idiomas y conocer culturas. ¿Cuál ha sido tu destino favorito hasta ahora?';
+        } else {
+          reply = `¡Qué aventura! Siempre hay algo nuevo por descubrir en cada rincón del mundo. ¿Qué te gustaría explorar en tu próximo viaje?`;
+        }
       } else {
-        reply = `Te he entendido muy bien. Tu práctica está dando frutos. Sigue hablándome en español: ¿puedes contarme algo más sobre tu día a día?`;
+        if (lowerInput.includes('hola')) {
+          reply = `¡Hola! Qué gusto saludarte. Estoy aquí para ayudarte a practicar y mejorar día a día. ¿Sobre qué te gustaría conversar?`;
+        } else {
+          reply = `Te he entendido muy bien. Tu práctica está dando frutos. Sigue hablándome en español: ¿puedes contarme algo más sobre tu día a día?`;
+        }
       }
     }
 
@@ -418,6 +511,101 @@ export class MockAIProviderAdapter implements IAIProviderAdapter {
         headline: 'Reunión Diaria de Ingeniería',
         body: 'Términos de trabajo: "Revisión de código", "Despliegue en producción", "Base de datos".',
         targetVocab: ['Despliegue', 'Base de datos', 'Arquitectura', 'Equipo'],
+      };
+    }
+
+    // English characters
+    if (name.includes('sarah')) {
+      return {
+        id: 'cue-london-cafe',
+        title: 'London Café Menu & Board',
+        category: 'menu',
+        headline: 'Artisan Coffee & Tea in Covent Garden',
+        body: 'Order drinks and pastries: Flat White (£3.20), Earl Grey Tea (£2.80), Warm Scone with clotted cream (£2.50).',
+        targetVocab: ['Flat White', 'Earl Grey', 'Scone', 'Milk', 'Sugar', 'Bill please'],
+        imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=400&q=80',
+      };
+    }
+
+    if (name.includes('david')) {
+      return {
+        id: 'cue-academic-seminar',
+        title: 'Academic Seminar & Discussion Board',
+        category: 'cultural_tip',
+        headline: 'Clear Articulation & Formal Discourse',
+        body: 'Useful discussion discourse markers: "In my perspective", "Could you elaborate?", "Furthermore".',
+        targetVocab: ['Furthermore', 'Perspective', 'Elaborate', 'Commendable'],
+      };
+    }
+
+    // French characters
+    if (name.includes('amélie') || name.includes('amelie')) {
+      return {
+        id: 'cue-paris-cafe',
+        title: 'Menu du Café Parisien',
+        category: 'menu',
+        headline: 'Bistrot & Terrasse à Montmartre',
+        body: 'Commander des boissons : Café au lait (2,50€), Croissant frais (1,80€), Chocolat chaud (3,00€).',
+        targetVocab: ['Café au lait', 'Croissant', 'S\'il vous plaît', 'L\'addition'],
+        imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=400&q=80',
+      };
+    }
+
+    if (name.includes('pierre')) {
+      return {
+        id: 'cue-sorbonne-lecture',
+        title: 'Fiche Pédagogique et Nuances',
+        category: 'cultural_tip',
+        headline: 'Registres de Langue & Politesse',
+        body: 'Différencier le vouvoiement formel (« Vous ») et le tutoiement amical (« Tu »).',
+        targetVocab: ['Vouvoiement', 'Formel', 'Je vous en prie', 'Enchanté'],
+      };
+    }
+
+    // German characters
+    if (name.includes('lukas')) {
+      return {
+        id: 'cue-munich-guide',
+        title: 'Münchner Stadtplan & Marienplatz',
+        category: 'map',
+        headline: 'Orientierung in der Altstadt',
+        body: 'Nach dem Weg fragen: "Wo ist das Rathaus?", "Biegen Sie links ab", "Geradeaus".',
+        targetVocab: ['Rathaus', 'Geradeaus', 'U-Bahn', 'Bahnhof', 'Entschuldigung'],
+        imageUrl: 'https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=400&q=80',
+      };
+    }
+
+    if (name.includes('hannah')) {
+      return {
+        id: 'cue-berlin-media',
+        title: 'Medien- und Kommunikationsleitfaden',
+        category: 'cultural_tip',
+        headline: 'Modernes Deutsch im Alltag',
+        body: 'Hilfreiche Ausdrücke: "Meiner Meinung nach", "Könnten Sie das wiederholen?", "Alles klar".',
+        targetVocab: ['Meinung', 'Wiederholen', 'Verständnis', 'Genau'],
+      };
+    }
+
+    // Japanese characters
+    if (name.includes('kenji')) {
+      return {
+        id: 'cue-tokyo-cafe',
+        title: '東京カフェのメニュー (Tokyo Café)',
+        category: 'menu',
+        headline: '喫茶店の定番メニュー',
+        body: '注文フレーズ：「ホットコーヒーをひとつお願いします」、「おすすめは何ですか？」',
+        targetVocab: ['コーヒー (Coffee)', 'おすすめ (Recommendation)', 'お願いします (Please)', '水 (Water)'],
+      };
+    }
+
+    if (name.includes('yuki')) {
+      return {
+        id: 'cue-kyoto-culture',
+        title: '京都の文化と丁寧な表現 (Polite Japanese)',
+        category: 'cultural_tip',
+        headline: '日常会話と敬語のマナー',
+        body: '丁寧な挨拶：「はじめまして」、「よろしくお願いいたします」、「ありがとうございます」。',
+        targetVocab: ['はじめまして', 'よろしくお願いします', 'ありがとうございます', 'すみません'],
       };
     }
 
