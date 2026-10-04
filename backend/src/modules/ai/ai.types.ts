@@ -179,7 +179,7 @@ export interface AIVideoCallDTO {
   id: string;
   conversationId: string;
   characterId: string;
-  character: AITutorCharacterDTO;
+  character: AICharacterDTO;
   status: 'CONNECTING' | 'CONNECTED' | 'ENDED';
   startedAt: string;
   endedAt?: string | null;

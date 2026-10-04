@@ -87,7 +87,13 @@ export class LessonsService {
 
     const lesson = await prisma.lesson.findUnique({
       where: { id: lessonId },
-      include: { exercises: true },
+      include: {
+        exercises: {
+          include: {
+            options: true,
+          },
+        },
+      },
     });
 
     if (!lesson) {
@@ -105,11 +111,20 @@ export class LessonsService {
       const exercise = exerciseMap.get(ans.exerciseId);
       if (!exercise) continue;
 
-      const cleanUser = ans.userAnswer.trim().toLowerCase();
-      const cleanExpected = exercise.expectedAnswer.trim().toLowerCase();
-      const cleanAlternatives = exercise.acceptableAlternatives.map((a) => a.trim().toLowerCase());
+      const cleanUser = (ans.userAnswer || '').trim().toLowerCase();
+      const cleanExpected = (exercise.expectedAnswer || '').trim().toLowerCase();
+      const cleanAlternatives = (exercise.acceptableAlternatives || []).map((a: string) => (a || '').trim().toLowerCase());
 
-      const isCorrect = cleanUser === cleanExpected || cleanAlternatives.includes(cleanUser);
+      const matchedOption = exercise.options?.find(
+        (o) => o.id === ans.userAnswer || o.text.trim().toLowerCase() === cleanUser
+      );
+
+      const isCorrect =
+        (matchedOption && matchedOption.isCorrect) ||
+        cleanUser === cleanExpected ||
+        cleanAlternatives.includes(cleanUser);
+
+      const recordedAnswer = matchedOption ? matchedOption.text : ans.userAnswer;
 
       if (isCorrect) {
         correctCount += 1;
@@ -117,7 +132,7 @@ export class LessonsService {
       } else {
         mistakesToRecord.push({
           exerciseId: exercise.id,
-          userGivenAnswer: ans.userAnswer,
+          userGivenAnswer: recordedAnswer,
         });
       }
 

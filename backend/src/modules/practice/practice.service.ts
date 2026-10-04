@@ -1,6 +1,7 @@
 // ==============================================================================
 // MAHMAS LANGUAGE — PRACTICE SERVICE
 // Authoritative practice session runner, exercise selection, mistake & vocab review
+// Strict Target Language Isolation Enforced
 // ==============================================================================
 
 import { PracticeSessionStatus, PracticeSessionType, VocabularyStatus, ExerciseType } from '@prisma/client';
@@ -15,26 +16,40 @@ import { ProgressionConfig } from '../progression/progression.config';
 
 export class PracticeService {
   /**
-   * Retrieves practice overview statistics for the user.
+   * Retrieves practice overview statistics for the user filtered by active target language.
    */
   async getOverview(userId: string) {
     const now = new Date();
 
-    // 1. Unresolved mistakes count
-    const mistakeCount = await prisma.mistake.count({
-      where: {
-        userId,
-        isResolved: false,
-      },
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
     });
+    const targetLangId = user?.profile?.targetLanguageId;
 
-    // 2. Vocabulary words due for review
-    const vocabularyReviewCount = await prisma.userVocabulary.count({
-      where: {
-        userId,
-        nextReviewAt: { lte: now },
-      },
-    });
+    // 1. Unresolved mistakes count (filtered by target language)
+    const mistakeWhere: any = { userId, isResolved: false };
+    if (targetLangId) {
+      mistakeWhere.exercise = {
+        lesson: {
+          unit: {
+            section: {
+              course: {
+                languageId: targetLangId,
+              },
+            },
+          },
+        },
+      };
+    }
+    const mistakeCount = await prisma.mistake.count({ where: mistakeWhere });
+
+    // 2. Vocabulary words due for review (filtered by target language)
+    const vocabWhere: any = { userId, nextReviewAt: { lte: now } };
+    if (targetLangId) {
+      vocabWhere.word = { languageId: targetLangId };
+    }
+    const vocabularyReviewCount = await prisma.userVocabulary.count({ where: vocabWhere });
 
     // 3. Recommended practice count
     const recommendedPracticeCount = Math.max(5, Math.min(15, mistakeCount + vocabularyReviewCount + 5));
@@ -75,18 +90,36 @@ export class PracticeService {
   }
 
   /**
-   * Starts a new authoritative practice session and selects priority exercises.
+   * Starts a new authoritative practice session and selects priority exercises for active target language.
    */
   async startSession(userId: string, sessionType: PracticeSessionType = PracticeSessionType.RECOMMENDED) {
     const selectedExercises: any[] = [];
     const exerciseIdSet = new Set<string>();
 
-    // 1. Prioritize unresolved mistakes
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    const targetLangId = user?.profile?.targetLanguageId;
+
+    // 1. Prioritize unresolved mistakes for user's active target language
+    const mistakeWhere: any = { userId, isResolved: false };
+    if (targetLangId) {
+      mistakeWhere.exercise = {
+        lesson: {
+          unit: {
+            section: {
+              course: {
+                languageId: targetLangId,
+              },
+            },
+          },
+        },
+      };
+    }
+
     const unresolvedMistakes = await prisma.mistake.findMany({
-      where: {
-        userId,
-        isResolved: false,
-      },
+      where: mistakeWhere,
       include: {
         exercise: {
           include: {
@@ -107,12 +140,25 @@ export class PracticeService {
       }
     }
 
-    // 2. Add course exercises to fulfill practice size (up to 5 exercises)
+    // 2. Add course exercises to fulfill practice size (up to 5 exercises) for active target language
     if (selectedExercises.length < 5) {
+      const exerciseWhere: any = {
+        id: { notIn: Array.from(exerciseIdSet) },
+      };
+      if (targetLangId) {
+        exerciseWhere.lesson = {
+          unit: {
+            section: {
+              course: {
+                languageId: targetLangId,
+              },
+            },
+          },
+        };
+      }
+
       const additionalExercises = await prisma.exercise.findMany({
-        where: {
-          id: { notIn: Array.from(exerciseIdSet) },
-        },
+        where: exerciseWhere,
         include: {
           options: {
             select: { id: true, text: true, orderIndex: true },
@@ -159,54 +205,88 @@ export class PracticeService {
     return {
       sessionId: session.id,
       sessionType: session.sessionType,
-      exerciseCount: sanitizedExercises.length,
+      status: session.status,
+      exerciseCount: session.exerciseCount,
+      startedAt: session.startedAt,
       exercises: sanitizedExercises,
+      session: {
+        id: session.id,
+        sessionId: session.id,
+        sessionType: session.sessionType,
+        status: session.status,
+        exerciseCount: session.exerciseCount,
+        startedAt: session.startedAt,
+        exercises: sanitizedExercises,
+      },
     };
   }
 
   /**
-   * Authoritatively evaluates an individual exercise submission during a practice session.
+   * Authoritatively evaluates a single exercise attempt during an active practice session.
    */
   async submitExercise(params: {
     sessionId: string;
-    exerciseId: string;
     userId: string;
+    exerciseId: string;
     userAnswer: string;
+    timeSpentMs?: number;
   }) {
-    const { sessionId, exerciseId, userId, userAnswer } = params;
+    return this.submitAnswer(params);
+  }
 
-    const session = await prisma.practiceSession.findUnique({
-      where: { id: sessionId },
+  async submitAnswer(params: {
+    sessionId: string;
+    userId: string;
+    exerciseId: string;
+    userAnswer: string;
+    timeSpentMs?: number;
+  }) {
+    const { sessionId, userId, exerciseId, userAnswer } = params;
+
+    const session = await prisma.practiceSession.findFirst({
+      where: {
+        id: sessionId,
+        userId,
+        status: PracticeSessionStatus.ACTIVE,
+      },
     });
 
-    if (!session || session.userId !== userId || session.status !== PracticeSessionStatus.ACTIVE) {
+    if (!session) {
       throw new Error('Active practice session not found.');
     }
 
     const exercise = await prisma.exercise.findUnique({
       where: { id: exerciseId },
+      include: { lesson: true, options: true },
     });
 
     if (!exercise) {
       throw new Error('Exercise not found.');
     }
 
-    // Evaluate answer correctness server-side
     const cleanUser = userAnswer.trim().toLowerCase();
     const cleanExpected = exercise.expectedAnswer.trim().toLowerCase();
     const cleanAlternatives = exercise.acceptableAlternatives.map((a) => a.trim().toLowerCase());
 
-    const isCorrect = cleanUser === cleanExpected || cleanAlternatives.includes(cleanUser);
+    const matchedOption = exercise.options?.find(
+      (o) => o.id === userAnswer || o.text.trim().toLowerCase() === cleanUser
+    );
+
+    const isCorrect =
+      (matchedOption && matchedOption.isCorrect) ||
+      cleanUser === cleanExpected ||
+      cleanAlternatives.includes(cleanUser);
+
+    const recordedAnswer = matchedOption ? matchedOption.text : userAnswer;
 
     if (isCorrect) {
-      // Increment session correct count
       await prisma.practiceSession.update({
         where: { id: sessionId },
         data: { correctCount: { increment: 1 } },
       });
 
-      // If an existing mistake existed for this exercise, mark as resolved
-      const existingMistake = await prisma.mistake.findFirst({
+      // If resolving an active mistake, mark as resolved
+      const activeMistake = await prisma.mistake.findFirst({
         where: {
           userId,
           exerciseId,
@@ -214,25 +294,25 @@ export class PracticeService {
         },
       });
 
-      if (existingMistake) {
+      if (activeMistake) {
         await prisma.mistake.update({
-          where: { id: existingMistake.id },
+          where: { id: activeMistake.id },
           data: {
             isResolved: true,
             resolvedAt: new Date(),
             lastReviewedAt: new Date(),
+            retryCount: { increment: 1 },
           },
         });
       }
     } else {
-      // Increment session incorrect count
       await prisma.practiceSession.update({
         where: { id: sessionId },
         data: { incorrectCount: { increment: 1 } },
       });
 
-      // Record mistake
-      const existingMistake = await prisma.mistake.findFirst({
+      // Record / update persistent mistake
+      const existing = await prisma.mistake.findFirst({
         where: {
           userId,
           exerciseId,
@@ -240,14 +320,14 @@ export class PracticeService {
         },
       });
 
-      if (existingMistake) {
+      if (existing) {
         await prisma.mistake.update({
-          where: { id: existingMistake.id },
+          where: { id: existing.id },
           data: {
-            userGivenAnswer: userAnswer,
+            userGivenAnswer: recordedAnswer,
             retryCount: { increment: 1 },
-            lastReviewedAt: new Date(),
             practiceSessionId: sessionId,
+            lastReviewedAt: new Date(),
           },
         });
       } else {
@@ -255,7 +335,7 @@ export class PracticeService {
           data: {
             userId,
             exerciseId,
-            userGivenAnswer: userAnswer,
+            userGivenAnswer: recordedAnswer,
             practiceSessionId: sessionId,
             retryCount: 0,
             isResolved: false,
@@ -265,16 +345,15 @@ export class PracticeService {
     }
 
     return {
+      exerciseId,
       isCorrect,
       expectedAnswer: exercise.expectedAnswer,
       explanation: exercise.explanation,
-      hint: exercise.hint,
     };
   }
 
   /**
-   * Completes a practice session, computes duration, awards XP/Gems with idempotency,
-   * and updates user streaks and daily goals.
+   * Completes a practice session and awards authoritative XP, gems, and records activity.
    */
   async completeSession(params: {
     sessionId: string;
@@ -283,11 +362,14 @@ export class PracticeService {
   }) {
     const { sessionId, userId, durationSec } = params;
 
-    const session = await prisma.practiceSession.findUnique({
-      where: { id: sessionId },
+    const session = await prisma.practiceSession.findFirst({
+      where: {
+        id: sessionId,
+        userId,
+      },
     });
 
-    if (!session || session.userId !== userId) {
+    if (!session) {
       throw new Error('Practice session not found.');
     }
 
@@ -296,7 +378,6 @@ export class PracticeService {
         sessionId: session.id,
         status: session.status,
         xpAwarded: session.xpAwarded,
-        gemsAwarded: 0,
         alreadyCompleted: true,
       };
     }
@@ -368,16 +449,35 @@ export class PracticeService {
 
   /**
    * Retrieves categorized mistakes for user review without revealing answer keys before attempt.
+   * Resolves option IDs to human-readable strings if applicable.
    */
   async getMistakes(userId: string) {
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    const targetLangId = user?.profile?.targetLanguageId;
+
+    const mistakeWhere: any = { userId, isResolved: false };
+    if (targetLangId) {
+      mistakeWhere.exercise = {
+        lesson: {
+          unit: {
+            section: {
+              course: {
+                languageId: targetLangId,
+              },
+            },
+          },
+        },
+      };
+    }
+
     const mistakes = await prisma.mistake.findMany({
-      where: {
-        userId,
-        isResolved: false,
-      },
+      where: mistakeWhere,
       include: {
         exercise: {
           select: {
@@ -385,6 +485,9 @@ export class PracticeService {
             question: true,
             type: true,
             difficulty: true,
+            options: {
+              select: { id: true, text: true },
+            },
           },
         },
       },
@@ -396,13 +499,20 @@ export class PracticeService {
     const older: any[] = [];
 
     for (const m of mistakes) {
+      let displayAnswer = m.userGivenAnswer;
+      // If user given answer was a raw option UUID, resolve it to option label text
+      const matchedOption = m.exercise.options?.find((o: any) => o.id === m.userGivenAnswer);
+      if (matchedOption) {
+        displayAnswer = matchedOption.text;
+      }
+
       const item = {
         id: m.id,
         exerciseId: m.exerciseId,
         question: m.exercise.question,
         type: m.exercise.type,
         difficulty: m.exercise.difficulty,
-        userGivenAnswer: m.userGivenAnswer,
+        userGivenAnswer: displayAnswer,
         retryCount: m.retryCount,
         lastReviewedAt: m.lastReviewedAt ? m.lastReviewedAt.toISOString() : null,
         createdAt: m.createdAt.toISOString(),
@@ -427,10 +537,22 @@ export class PracticeService {
 
   /**
    * Retrieves vocabulary items for the user, tracking review intervals and confidence.
+   * Strictly filtered by user's active target language.
    */
   async getVocabulary(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    const targetLangId = user?.profile?.targetLanguageId;
+
+    const vocabWhere: any = { userId };
+    if (targetLangId) {
+      vocabWhere.word = { languageId: targetLangId };
+    }
+
     const vocab = await prisma.userVocabulary.findMany({
-      where: { userId },
+      where: vocabWhere,
       include: { word: true },
       orderBy: { nextReviewAt: 'asc' },
     });
