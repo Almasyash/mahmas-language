@@ -353,6 +353,10 @@ export class AIService {
       throw new BadRequestError('Message content cannot be empty');
     }
 
+    if (content.length > 4000) {
+      throw new BadRequestError('Message exceeds maximum allowed length of 4000 characters');
+    }
+
     const conversation = await prisma.aIConversation.findUnique({
       where: { id: conversationId },
       include: {

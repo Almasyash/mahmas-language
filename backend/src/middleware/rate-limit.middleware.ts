@@ -15,9 +15,12 @@ export const rateLimiter = (options: { windowMs: number; maxRequests: number; me
       return next();
     }
 
-    const ip = req.ip || req.socket.remoteAddress || 'unknown-ip';
+    const userOrIp = (req as any).user?.userId
+      ? `user:${(req as any).user.userId}`
+      : `ip:${req.ip || req.socket.remoteAddress || 'unknown'}`;
+    const routePath = req.baseUrl ? `${req.baseUrl}${req.route?.path || req.path}` : req.path;
     const now = Date.now();
-    const key = `${req.baseUrl || req.path}:${ip}`;
+    const key = `${routePath}:${userOrIp}`;
 
     const record = rateLimitStore.get(key);
 

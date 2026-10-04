@@ -60,46 +60,62 @@ export class XpService {
     }
 
     // Record XP Transaction
-    await prisma.$transaction(async (tx) => {
-      await tx.xPTransaction.create({
-        data: {
-          userId,
-          amount,
-          reason,
-          referenceId,
-          idempotencyKey,
-        },
-      });
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.xPTransaction.create({
+          data: {
+            userId,
+            amount,
+            reason,
+            referenceId,
+            idempotencyKey,
+          },
+        });
 
-      // Update Daily Goal earned XP if goal exists for today
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        include: { profile: true },
-      });
+        // Update Daily Goal earned XP if goal exists for today
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          include: { profile: true },
+        });
 
-      const userTimezone = user?.profile?.timezone || 'UTC';
-      const todayDateStr = getLocalDateString(new Date(), userTimezone);
-      const todayDate = new Date(`${todayDateStr}T00:00:00.000Z`);
+        const userTimezone = user?.profile?.timezone || 'UTC';
+        const todayDateStr = getLocalDateString(new Date(), userTimezone);
+        const todayDate = new Date(`${todayDateStr}T00:00:00.000Z`);
 
-      await tx.dailyGoal.upsert({
-        where: {
-          userId_targetDate: {
+        await tx.dailyGoal.upsert({
+          where: {
+            userId_targetDate: {
+              userId,
+              targetDate: todayDate,
+            },
+          },
+          update: {
+            earnedXP: { increment: amount },
+          },
+          create: {
             userId,
             targetDate: todayDate,
+            earnedXP: amount,
+            targetXP: 30,
+            targetMinutes: user?.profile?.dailyMinutesGoal || 15,
           },
-        },
-        update: {
-          earnedXP: { increment: amount },
-        },
-        create: {
-          userId,
-          targetDate: todayDate,
-          earnedXP: amount,
-          targetXP: 30,
-          targetMinutes: user?.profile?.dailyMinutesGoal || 15,
-        },
+        });
       });
-    });
+    } catch (err: any) {
+      if (err.code === 'P2002' && idempotencyKey) {
+        // Concurrent race condition deduplicated by database unique constraint
+        const existing = await prisma.xPTransaction.findUnique({
+          where: { idempotencyKey },
+        });
+        const summary = await this.getXpSummary(userId);
+        return {
+          awarded: false,
+          amount: existing?.amount || amount,
+          totalXp: summary.totalXp,
+        };
+      }
+      throw err;
+    }
 
     const summary = await this.getXpSummary(userId);
     return {

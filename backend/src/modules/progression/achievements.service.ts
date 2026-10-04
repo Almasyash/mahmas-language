@@ -42,31 +42,38 @@ export class AchievementsService {
       },
     });
 
-    if (existing && existing.isUnlocked) {
-      return null; // Already unlocked, no duplicate rewards
-    }
-
-    // Create user achievement
-    const unlocked = await prisma.userAchievement.upsert({
-      where: {
-        userId_achievementId: {
-          userId,
-          achievementId: achievement.id,
+    const now = new Date();
+    if (existing) {
+      if (existing.isUnlocked) {
+        return null; // Already unlocked, no duplicate rewards
+      }
+      await prisma.userAchievement.update({
+        where: { id: existing.id },
+        data: {
+          isUnlocked: true,
+          progress: 100,
+          unlockedAt: now,
         },
-      },
-      update: {
-        isUnlocked: true,
-        progress: 100,
-        unlockedAt: new Date(),
-      },
-      create: {
-        userId,
-        achievementId: achievement.id,
-        isUnlocked: true,
-        progress: 100,
-        unlockedAt: new Date(),
-      },
-    });
+      });
+    } else {
+      try {
+        await prisma.userAchievement.create({
+          data: {
+            userId,
+            achievementId: achievement.id,
+            isUnlocked: true,
+            progress: 100,
+            unlockedAt: now,
+          },
+        });
+      } catch (err: any) {
+        if (err.code === 'P2002') {
+          // Concurrent race condition: already created/unlocked by another request
+          return null;
+        }
+        throw err;
+      }
+    }
 
     // Award achievement bonus XP
     await xpService.awardXp({
@@ -84,7 +91,7 @@ export class AchievementsService {
       description: achievement.description,
       badgeIcon: achievement.badgeIcon,
       isUnlocked: true,
-      unlockedAt: unlocked.unlockedAt.toISOString(),
+      unlockedAt: now.toISOString(),
       progress: 100,
     };
   }
