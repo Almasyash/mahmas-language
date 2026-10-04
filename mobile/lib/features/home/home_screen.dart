@@ -119,8 +119,20 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Future placeholders for AI Tutor & Language Exchange
-    if (_selectedIndex == 2 || _selectedIndex == 3) {
+    // If AI Tutor tab is selected, render AITutorSelectionScreen directly
+    if (_selectedIndex == 2) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('AI Tutor', style: TextStyle(fontWeight: FontWeight.bold)),
+          actions: _buildHeaderPills(),
+        ),
+        body: const AITutorSelectionScreen(),
+        bottomNavigationBar: _buildBottomNav(),
+      );
+    }
+
+    // Future placeholder for Language Exchange (Tab 3)
+    if (_selectedIndex == 3) {
       return Scaffold(
         appBar: AppBar(
           title: Text(_tabTitles[_selectedIndex], style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -131,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                _selectedIndex == 2 ? Icons.smart_toy_rounded : Icons.connect_without_contact_rounded,
+                Icons.connect_without_contact_rounded,
                 size: 64,
                 color: Colors.grey.shade400,
               ),
