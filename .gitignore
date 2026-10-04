@@ -90,5 +90,7 @@ backend/.env
 
 # Local build artifacts
 *.apk
+scratch/
+screenshots/
 
 

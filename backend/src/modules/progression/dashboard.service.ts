@@ -1,6 +1,7 @@
 // ==============================================================================
 // MAHMAS LANGUAGE — DASHBOARD SERVICE
 // Aggregated, server-calculated dashboard for home screen
+// Strict Target/Native Language Isolation
 // ==============================================================================
 
 import { prisma } from '../../database/prisma';
@@ -57,8 +58,8 @@ export class DashboardService {
 
     // Calculate current course & active lesson
     const course = coursePathResult?.course;
-    let activeLessonTitle = 'Lesson 1: Saying Hello';
-    let activeLessonId = course?.currentLessonId || 'lesson-es-1';
+    let activeLessonTitle = course ? 'Lesson 1' : 'No lessons available yet';
+    let activeLessonId = course?.currentLessonId || '';
     let completedLessonsCount = 0;
     let totalLessonsCount = 0;
 
@@ -78,6 +79,8 @@ export class DashboardService {
 
     const courseProgressPercent = totalLessonsCount > 0 ? Math.round((completedLessonsCount / totalLessonsCount) * 100) : 0;
 
+    const targetLangName = user.profile.targetLanguage?.name || 'Selected language';
+
     return {
       user: {
         id: user.id,
@@ -90,7 +93,17 @@ export class DashboardService {
               id: user.profile.targetLanguage.id,
               code: user.profile.targetLanguage.code,
               name: user.profile.targetLanguage.name,
+              nativeName: user.profile.targetLanguage.nativeName,
               flagEmoji: user.profile.targetLanguage.flagEmoji,
+            }
+          : null,
+        nativeLanguage: user.profile.nativeLanguage
+          ? {
+              id: user.profile.nativeLanguage.id,
+              code: user.profile.nativeLanguage.code,
+              name: user.profile.nativeLanguage.name,
+              nativeName: user.profile.nativeLanguage.nativeName,
+              flagEmoji: user.profile.nativeLanguage.flagEmoji,
             }
           : null,
       },
@@ -98,13 +111,14 @@ export class DashboardService {
       streak,
       dailyGoal,
       currentCourse: {
-        id: course?.id || 'course-es-a1',
-        title: course?.title || 'Spanish Foundations',
+        id: course?.id || '',
+        title: course?.title || `${targetLangName} Course`,
         progressPercent: courseProgressPercent,
         completedLessonsCount,
         totalLessonsCount,
         activeLessonId,
         activeLessonTitle,
+        isAvailable: !!course,
       },
       practiceSummary: {
         mistakeCount: practiceOverview.mistakeCount,

@@ -10,6 +10,7 @@ const router = Router();
 
 router.use(authenticateToken);
 
+router.get('/', (req, res, next) => coursesController.getCourses(req, res, next));
 router.get('/:courseId/path', (req, res, next) => coursesController.getCoursePath(req, res, next));
 
 export default router;

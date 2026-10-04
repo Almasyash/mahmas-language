@@ -26,6 +26,8 @@ export const updateProfileSchema = z.object({
   avatarUrl: z.string().url().nullable().optional(),
   timezone: z.string().optional(),
   dailyMinutesGoal: z.number().int().min(5).max(120).optional(),
+  targetLanguageId: z.string().optional(),
+  nativeLanguageId: z.string().optional(),
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

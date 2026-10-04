@@ -53,6 +53,39 @@ export class UsersService {
       throw new NotFoundError('Profile not found for this user');
     }
 
+    let targetLangId = profile.targetLanguageId;
+    let nativeLangId = profile.nativeLanguageId;
+
+    if (input.targetLanguageId) {
+      const targetLang = await prisma.language.findFirst({
+        where: {
+          OR: [{ id: input.targetLanguageId }, { code: input.targetLanguageId }],
+          isActive: true,
+        },
+      });
+      if (!targetLang) {
+        throw new ValidationError(`Target language '${input.targetLanguageId}' not found or inactive`);
+      }
+      targetLangId = targetLang.id;
+    }
+
+    if (input.nativeLanguageId) {
+      const nativeLang = await prisma.language.findFirst({
+        where: {
+          OR: [{ id: input.nativeLanguageId }, { code: input.nativeLanguageId }],
+          isActive: true,
+        },
+      });
+      if (!nativeLang) {
+        throw new ValidationError(`Native language '${input.nativeLanguageId}' not found or inactive`);
+      }
+      nativeLangId = nativeLang.id;
+    }
+
+    if (targetLangId && nativeLangId && targetLangId === nativeLangId) {
+      throw new ValidationError('Native language and target language cannot be the same');
+    }
+
     const updated = await prisma.profile.update({
       where: { userId },
       data: {
@@ -61,6 +94,8 @@ export class UsersService {
         ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl }),
         ...(input.timezone && { timezone: input.timezone }),
         ...(input.dailyMinutesGoal && { dailyMinutesGoal: input.dailyMinutesGoal }),
+        ...(input.targetLanguageId && { targetLanguageId: targetLangId }),
+        ...(input.nativeLanguageId && { nativeLanguageId: nativeLangId }),
       },
       include: {
         nativeLanguage: {

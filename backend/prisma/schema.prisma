@@ -245,7 +245,8 @@ model Language {
 
   nativeProfiles       Profile[]    @relation("ProfileNativeLanguage")
   targetProfiles       Profile[]    @relation("ProfileTargetLanguage")
-  courses              Course[]
+  courses              Course[]     @relation("CourseTargetLanguage")
+  sourceCourses        Course[]     @relation("CourseSourceLanguage")
   vocabularyWords      VocabularyWord[]
   languageLevels       LanguageLevel[]
 
@@ -267,22 +268,25 @@ model LanguageLevel {
 }
 
 model Course {
-  id              String          @id @default(uuid())
-  languageId      String
-  language        Language        @relation(fields: [languageId], references: [id], onDelete: Cascade)
-  languageLevelId String
-  languageLevel   LanguageLevel   @relation(fields: [languageLevelId], references: [id], onDelete: Cascade)
-  title           String
-  description     String?         @db.Text
-  bannerUrl       String?
-  isPublished     Boolean         @default(false)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id               String          @id @default(uuid())
+  languageId       String
+  language         Language        @relation("CourseTargetLanguage", fields: [languageId], references: [id], onDelete: Cascade)
+  sourceLanguageId String?
+  sourceLanguage   Language?       @relation("CourseSourceLanguage", fields: [sourceLanguageId], references: [id], onDelete: SetNull)
+  languageLevelId  String
+  languageLevel    LanguageLevel   @relation(fields: [languageLevelId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?         @db.Text
+  bannerUrl        String?
+  isPublished      Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  sections        CourseSection[]
-  userProgress    UserProgress[]
+  sections         CourseSection[]
+  userProgress     UserProgress[]
 
   @@index([languageId])
+  @@index([sourceLanguageId])
 }
 
 model CourseSection {
