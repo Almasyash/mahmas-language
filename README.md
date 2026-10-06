@@ -1,4 +1,4 @@
-# Mahmas Language — Language Learning Super App
+# Speakly_FS — Language Learning Super App
 
 > **Next-Generation Language Learning + AI Conversation Tutor + Language Exchange + Real-Time Audio/Video Communication**
 
@@ -6,7 +6,7 @@
 
 ## 🌟 Product Vision
 
-Mahmas Language is an original, production-grade language-learning platform designed to combine structured pedagogical mastery with state-of-the-art AI companionship and real human language exchange.
+Speakly_FS is an original, production-grade language-learning platform designed to combine structured pedagogical mastery with state-of-the-art AI companionship and real human language exchange.
 
 ### 🚫 Originality Declaration
 This product is **NOT** a clone of Duolingo or any existing platform. It features:

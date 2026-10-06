@@ -459,7 +459,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Confirm Logout'),
-        content: const Text('Are you sure you want to log out of Mahmas Language?'),
+        content: const Text('Are you sure you want to log out of Speakly_FS?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),

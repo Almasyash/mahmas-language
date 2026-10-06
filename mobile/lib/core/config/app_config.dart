@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 /// Allows changing the brand name, colors, typography, and API endpoints
 /// without modifying application business logic or UI components.
 class AppConfig {
-  static const String appName = 'MAHMAS LANGUAGE';
+  static const String appName = 'Speakly_FS';
   static const String appVersion = '1.0.0+1';
   static const String tagline = 'Master Languages Through Natural Conversation';
   static const String defaultFontFamily = 'Roboto';

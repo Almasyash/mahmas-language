@@ -1,7 +1,7 @@
 {
-  "name": "mahmas-language-backend",
+  "name": "speakly-fs-backend",
   "version": "0.1.0",
-  "description": "Production-grade backend for Mahmas Language learning platform",
+  "description": "Production-grade backend for Speakly_FS language learning platform",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

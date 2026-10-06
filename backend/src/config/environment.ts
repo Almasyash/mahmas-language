@@ -16,7 +16,7 @@ export interface AppConfig {
 export const config: AppConfig = {
   port: parseInt(process.env.PORT || '4000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  appName: process.env.APP_NAME || 'Mahmas Language Platform',
+  appName: process.env.APP_NAME || 'Speakly_FS Platform',
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET || 'dev_jwt_access_secret_min_32_chars_long',
   jwtAccessExpiration: process.env.JWT_ACCESS_EXPIRATION || '15m',
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'dev_jwt_refresh_secret_min_32_chars_long',
