@@ -11,7 +11,9 @@ class AppConfig {
 
   // API & Gateway Endpoints (configurable per flavor/environment)
   static const String defaultApiBaseUrl = 'https://speakly.fsgroupz.com/api/v1';
+  static const String fallbackApiBaseUrl = 'https://speakly-fs.onrender.com/api/v1';
   static const String defaultWsBaseUrl = 'wss://speakly.fsgroupz.com/ws';
+  static const String fallbackWsBaseUrl = 'wss://speakly-fs.onrender.com/ws';
 
   // Configurable Brand Palette (Material 3 Seed & Semantic Accents)
   static const Color brandPrimary = Color(0xFF1E88E5); // Vibrant Indigo-Blue

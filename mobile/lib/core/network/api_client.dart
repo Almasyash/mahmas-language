@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../config/app_config.dart';
 import '../storage/token_storage.dart';
 
 class ApiResponse<T> {
@@ -75,6 +76,7 @@ class ApiClient {
     String path, {
     dynamic body,
     bool retryOn401 = true,
+    bool allowFallback = true,
   }) async {
     try {
       final uri = Uri.parse('$baseUrl$path');
@@ -100,12 +102,19 @@ class ApiClient {
           throw UnsupportedError('HTTP method $method is not supported');
       }
 
+      // If primary endpoint returns 404 (e.g. DNS points to old hosting) or 502, automatically try fallback
+      if (allowFallback && (response.statusCode == 404 || response.statusCode == 502) && baseUrl != AppConfig.fallbackApiBaseUrl) {
+        debugPrint('[ApiClient] Primary domain returned ${response.statusCode}, switching to fallback: ${AppConfig.fallbackApiBaseUrl}');
+        baseUrl = AppConfig.fallbackApiBaseUrl;
+        return await _sendRequest<T>(method, path, body: body, retryOn401: retryOn401, allowFallback: false);
+      }
+
       // Check if 401 Unauthorized and retry allowed
       if (response.statusCode == 401 && retryOn401 && !path.contains('/auth/')) {
         final refreshed = await _attemptTokenRefresh();
         if (refreshed) {
           // Retry original request once with new token
-          return await _sendRequest<T>(method, path, body: body, retryOn401: false);
+          return await _sendRequest<T>(method, path, body: body, retryOn401: false, allowFallback: allowFallback);
         } else {
           onAuthExpired?.call();
           return ApiResponse<T>(
@@ -118,11 +127,21 @@ class ApiClient {
 
       return _parseResponse<T>(response);
     } on TimeoutException {
+      if (allowFallback && baseUrl != AppConfig.fallbackApiBaseUrl) {
+        debugPrint('[ApiClient] Timeout on primary, switching to fallback: ${AppConfig.fallbackApiBaseUrl}');
+        baseUrl = AppConfig.fallbackApiBaseUrl;
+        return await _sendRequest<T>(method, path, body: body, retryOn401: retryOn401, allowFallback: false);
+      }
       return ApiResponse<T>(
         success: false,
         errorMessage: 'Network timeout. Please check your connection.',
       );
     } catch (e) {
+      if (allowFallback && baseUrl != AppConfig.fallbackApiBaseUrl) {
+        debugPrint('[ApiClient] Connection failed ($e), switching to fallback: ${AppConfig.fallbackApiBaseUrl}');
+        baseUrl = AppConfig.fallbackApiBaseUrl;
+        return await _sendRequest<T>(method, path, body: body, retryOn401: retryOn401, allowFallback: false);
+      }
       return ApiResponse<T>(
         success: false,
         errorMessage: e.toString(),
