@@ -25,18 +25,62 @@ export const createApp = (): Application => {
   app.use(requestLogger);
 
   // Health & Service Discovery (Compatible with both /api/v1 and /v1)
-  app.get(['/api/v1/health', '/v1/health', '/health'], (_req: Request, res: Response) => {
+  app.get(['/api/v1/health', '/v1/health', '/health'], async (_req: Request, res: Response) => {
+    let dbStatus = 'DISCONNECTED';
+    let dbError: string | null = null;
+    let languageCount = 0;
+
+    try {
+      const { prisma } = await import('./database/prisma');
+      languageCount = await prisma.language.count();
+      dbStatus = 'CONNECTED';
+    } catch (e: any) {
+      dbStatus = 'ERROR';
+      dbError = e?.message || String(e);
+    }
+
+    const rawDbUrl = process.env.DATABASE_URL || '';
+    const maskedDb = rawDbUrl
+      ? rawDbUrl.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:****@')
+      : 'NOT_SET';
+
     const response: ApiResponse = {
       success: true,
       data: {
-        status: 'UP',
+        status: dbStatus === 'CONNECTED' ? 'UP' : 'DEGRADED',
         appName: config.appName,
         environment: config.nodeEnv,
+        database: {
+          status: dbStatus,
+          connection: maskedDb,
+          languageCount,
+          error: dbError,
+        },
         timestamp: new Date().toISOString(),
       },
       meta: { timestamp: new Date().toISOString() },
     };
     res.status(200).json(response);
+  });
+
+  // Automated DB Seeding Endpoint (for Cloud Setup)
+  app.get(['/api/v1/health/init-db', '/v1/health/init-db'], async (_req: Request, res: Response) => {
+    try {
+      const { prisma } = await import('./database/prisma');
+      const { seedInitialData } = await import('./database/seed');
+      await seedInitialData(prisma);
+      const count = await prisma.language.count();
+      res.status(200).json({
+        success: true,
+        message: 'Database schema and seed completed successfully!',
+        languagesCount: count,
+      });
+    } catch (e: any) {
+      res.status(500).json({
+        success: false,
+        error: e?.message || String(e),
+      });
+    }
   });
 
   app.get(['/api/v1/info', '/v1/info', '/info'], (_req: Request, res: Response) => {
