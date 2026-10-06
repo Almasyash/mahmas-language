@@ -623,7 +623,7 @@ export class GeminiAIProviderAdapter implements IAIProviderAdapter {
 
   constructor(apiKey?: string, model?: string) {
     this.apiKey = apiKey || process.env.AI_API_KEY || '';
-    this.model = model || process.env.AI_CHAT_MODEL || 'gemini-1.5-flash';
+    this.model = model || process.env.AI_CHAT_MODEL || 'gemini-2.5-flash';
   }
 
   async generateReply(context: AIMessageContext): Promise<AIResponsePayload> {
