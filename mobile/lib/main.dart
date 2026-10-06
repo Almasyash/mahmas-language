@@ -14,14 +14,8 @@ void main() async {
   final tokenStorage = TokenStorage();
   final savedServerUrl = await tokenStorage.getServerUrl();
 
-  // Smart API URL resolution: saved custom URL > localhost for Desktop > local LAN IP for physical device
-  final String apiBaseUrl = savedServerUrl ??
-      ((kIsWeb ||
-              defaultTargetPlatform == TargetPlatform.windows ||
-              defaultTargetPlatform == TargetPlatform.macOS ||
-              defaultTargetPlatform == TargetPlatform.linux)
-          ? 'http://localhost:4000/api/v1'
-          : AppConfig.defaultApiBaseUrl);
+  // Production API URL: saved custom URL > production endpoint
+  final String apiBaseUrl = savedServerUrl ?? AppConfig.defaultApiBaseUrl;
 
   final apiClient = ApiClient(
     baseUrl: apiBaseUrl,

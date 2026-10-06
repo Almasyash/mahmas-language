@@ -10,8 +10,8 @@ class AppConfig {
   static const String defaultFontFamily = 'Roboto';
 
   // API & Gateway Endpoints (configurable per flavor/environment)
-  static const String defaultApiBaseUrl = 'http://192.168.0.106:4000/api/v1';
-  static const String defaultWsBaseUrl = 'ws://192.168.0.106:4000/ws';
+  static const String defaultApiBaseUrl = 'https://speakly.fsgroupz.com/api/v1';
+  static const String defaultWsBaseUrl = 'wss://speakly.fsgroupz.com/ws';
 
   // Configurable Brand Palette (Material 3 Seed & Semantic Accents)
   static const Color brandPrimary = Color(0xFF1E88E5); // Vibrant Indigo-Blue

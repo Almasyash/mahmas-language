@@ -24,8 +24,8 @@ export const createApp = (): Application => {
   app.use(express.urlencoded({ extended: true }));
   app.use(requestLogger);
 
-  // Health & Service Discovery
-  app.get('/api/v1/health', (_req: Request, res: Response) => {
+  // Health & Service Discovery (Compatible with both /api/v1 and /v1)
+  app.get(['/api/v1/health', '/v1/health', '/health'], (_req: Request, res: Response) => {
     const response: ApiResponse = {
       success: true,
       data: {
@@ -39,7 +39,7 @@ export const createApp = (): Application => {
     res.status(200).json(response);
   });
 
-  app.get('/api/v1/info', (_req: Request, res: Response) => {
+  app.get(['/api/v1/info', '/v1/info', '/info'], (_req: Request, res: Response) => {
     const response: ApiResponse = {
       success: true,
       data: {
@@ -64,17 +64,17 @@ export const createApp = (): Application => {
     res.status(200).json(response);
   });
 
-  // API Modules
-  app.use('/api/v1/auth', authRoutes);
-  app.use('/api/v1/users', usersRoutes);
-  app.use('/api/v1/languages', languagesRoutes);
-  app.use('/api/v1/courses', coursesRoutes);
-  app.use('/api/v1/lessons', lessonsRoutes);
-  app.use('/api/v1/practice', practiceRoutes);
-  app.use('/api/v1/progression', progressionRoutes);
-  app.use('/api/v1/quests', progressionRoutes);
-  app.use('/api/v1/achievements', progressionRoutes);
-  app.use('/api/v1/ai', aiRoutes);
+  // API Modules (Compatible with both /api/v1/* and /v1/* paths)
+  app.use(['/api/v1/auth', '/v1/auth'], authRoutes);
+  app.use(['/api/v1/users', '/v1/users'], usersRoutes);
+  app.use(['/api/v1/languages', '/v1/languages'], languagesRoutes);
+  app.use(['/api/v1/courses', '/v1/courses'], coursesRoutes);
+  app.use(['/api/v1/lessons', '/v1/lessons'], lessonsRoutes);
+  app.use(['/api/v1/practice', '/v1/practice'], practiceRoutes);
+  app.use(['/api/v1/progression', '/v1/progression'], progressionRoutes);
+  app.use(['/api/v1/quests', '/v1/quests'], progressionRoutes);
+  app.use(['/api/v1/achievements', '/v1/achievements'], progressionRoutes);
+  app.use(['/api/v1/ai', '/v1/ai'], aiRoutes);
 
   // Centralized Error Handling
   app.use(errorHandler);

@@ -1,0 +1,43 @@
+# ==============================================================================
+# Speakly_FS — cPanel Production Apache Configuration
+# Target Directory: public_html/speakly/api/.htaccess
+# Domain / Subdomain: speakly.fsgroupz.com
+# ==============================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # 1. Force HTTPS
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # 2. WebSocket Upgrade Proxying (for AI Voice & WebRTC Signaling)
+    RewriteCond %{HTTP:Upgrade} websocket [NC]
+    RewriteCond %{HTTP:Connection} upgrade [NC]
+    RewriteRule ^ws(.*)$ ws://127.0.0.1:4000/ws$1 [P,L]
+
+    # 3. Reverse Proxy to Node.js backend (if running on internal port 4000)
+    # Uncomment if using PM2 / standalone process instead of cPanel Passenger:
+    # RewriteCond %{REQUEST_FILENAME} !-f
+    # RewriteCond %{REQUEST_FILENAME} !-d
+    # RewriteRule ^(.*)$ http://127.0.0.1:4000/$1 [P,L]
+</IfModule>
+
+# 4. Security & CORS Headers for fsgroupz.com & Mobile Clients
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, Accept"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# 5. Phusion Passenger Directives (cPanel "Setup Node.js App")
+# cPanel CloudLinux Node.js manager automatically manages these when enabled:
+<IfModule mod_passenger.c>
+    PassengerEnabled on
+    PassengerAppType node
+    PassengerStartupFile app.js
+</IfModule>

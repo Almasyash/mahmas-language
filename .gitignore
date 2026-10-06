@@ -90,7 +90,9 @@ backend/.env
 
 # Local build artifacts
 *.apk
+*.zip
 scratch/
 screenshots/
+public_html_speakly_api/
 
 
