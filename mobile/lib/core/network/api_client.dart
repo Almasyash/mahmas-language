@@ -102,8 +102,10 @@ class ApiClient {
           throw UnsupportedError('HTTP method $method is not supported');
       }
 
-      // If primary endpoint returns 404 (e.g. DNS points to old hosting) or 502, automatically try fallback
-      if (allowFallback && (response.statusCode == 404 || response.statusCode == 502) && baseUrl != AppConfig.fallbackApiBaseUrl) {
+      // If primary endpoint returns 403 (Cloudflare block/prohibited IP), 404 (not found), or any 5xx error, automatically try fallback
+      if (allowFallback &&
+          (response.statusCode >= 500 || response.statusCode == 404 || response.statusCode == 403) &&
+          baseUrl != AppConfig.fallbackApiBaseUrl) {
         debugPrint('[ApiClient] Primary domain returned ${response.statusCode}, switching to fallback: ${AppConfig.fallbackApiBaseUrl}');
         baseUrl = AppConfig.fallbackApiBaseUrl;
         return await _sendRequest<T>(method, path, body: body, retryOn401: retryOn401, allowFallback: false);

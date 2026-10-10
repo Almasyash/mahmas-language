@@ -377,7 +377,8 @@ export class PracticeService {
       return {
         sessionId: session.id,
         status: session.status,
-        xpAwarded: session.xpAwarded,
+        xpAwarded: 0,
+        gemsAwarded: 0,
         alreadyCompleted: true,
       };
     }

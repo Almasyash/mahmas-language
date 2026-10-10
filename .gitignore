@@ -19,6 +19,7 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
+*.log
 coverage/
 .nyc_output/
 

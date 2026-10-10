@@ -12,6 +12,7 @@ import { questsService } from '../progression/quests.service';
 import { achievementsService } from '../progression/achievements.service';
 import { ProgressionConfig } from '../progression/progression.config';
 import { VocabularyStatus } from '@prisma/client';
+import { ForbiddenError, NotFoundError } from '../../common/errors';
 
 export interface AnswerSubmission {
   exerciseId: string;
@@ -21,10 +22,89 @@ export interface AnswerSubmission {
 
 export class LessonsService {
   /**
+   * Authoritatively checks if a lesson is unlocked for a user.
+   */
+  async isLessonUnlocked(lessonId: string, userId: string): Promise<boolean> {
+    const lesson = await prisma.lesson.findUnique({
+      where: { id: lessonId },
+      include: {
+        unit: {
+          include: {
+            section: {
+              include: {
+                course: {
+                  include: {
+                    sections: {
+                      orderBy: { orderIndex: 'asc' },
+                      include: {
+                        units: {
+                          orderBy: { orderIndex: 'asc' },
+                          include: {
+                            lessons: {
+                              orderBy: { orderIndex: 'asc' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!lesson) {
+      throw new NotFoundError('Lesson not found.');
+    }
+
+    const course = lesson.unit?.section?.course;
+    if (!course) {
+      return true;
+    }
+
+    // Flatten all lessons in course order
+    const orderedLessons: string[] = [];
+    for (const section of course.sections) {
+      for (const unit of section.units) {
+        for (const l of unit.lessons) {
+          orderedLessons.push(l.id);
+        }
+      }
+    }
+
+    const lessonIndex = orderedLessons.indexOf(lessonId);
+    if (lessonIndex <= 0) {
+      // First lesson in course is always unlocked
+      return true;
+    }
+
+    // Check if the preceding lesson was completed successfully
+    const precedingLessonId = orderedLessons[lessonIndex - 1];
+    const previousSuccessful = await prisma.lessonAttempt.findFirst({
+      where: {
+        userId,
+        lessonId: precedingLessonId,
+        isSuccessful: true,
+      },
+    });
+
+    return !!previousSuccessful;
+  }
+
+  /**
    * Fetches exercises for a lesson.
    * STRICT SECURITY: Never leaks expectedAnswer or option correctness to the client.
+   * STRICT UNLOCK: Requires server-authoritative unlocked status.
    */
-  async getLessonExercises(lessonId: string, _userId: string) {
+  async getLessonExercises(lessonId: string, userId: string) {
+    const isUnlocked = await this.isLessonUnlocked(lessonId, userId);
+    if (!isUnlocked) {
+      throw new ForbiddenError('Lesson is locked. Complete preceding lessons first.');
+    }
+
     const lesson = await prisma.lesson.findUnique({
       where: { id: lessonId },
       include: {
@@ -84,6 +164,11 @@ export class LessonsService {
     durationSec: number;
   }) {
     const { lessonId, userId, answers, durationSec } = params;
+
+    const isUnlocked = await this.isLessonUnlocked(lessonId, userId);
+    if (!isUnlocked) {
+      throw new ForbiddenError('Lesson is locked. Complete preceding lessons first.');
+    }
 
     const lesson = await prisma.lesson.findUnique({
       where: { id: lessonId },
