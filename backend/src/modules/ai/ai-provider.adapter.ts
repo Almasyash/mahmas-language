@@ -30,6 +30,8 @@ export interface AIResponsePayload {
   correctionNote?: string | null;
   newMemories?: { key: string; value: string }[];
   audioUrl?: string | null;
+  isFallback?: boolean;
+  provider?: string;
 }
 
 export interface SpeechSynthesisResult {
@@ -681,13 +683,23 @@ Instructions:
 
       if (!response.ok) {
         console.warn(`Gemini API returned status ${response.status}. Falling back to mock engine.`);
-        return this.mockFallback.generateReply(context);
+        const fallbackRes = await this.mockFallback.generateReply(context);
+        return {
+          ...fallbackRes,
+          isFallback: true,
+          provider: 'mock-pedagogical-fallback',
+        };
       }
 
       const data = (await response.json()) as any;
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) {
-        return this.mockFallback.generateReply(context);
+        const fallbackRes = await this.mockFallback.generateReply(context);
+        return {
+          ...fallbackRes,
+          isFallback: true,
+          provider: 'mock-pedagogical-fallback',
+        };
       }
 
       const parsed = JSON.parse(text);
@@ -696,10 +708,17 @@ Instructions:
         correctionNote: parsed.correctionNote || null,
         newMemories: Array.isArray(parsed.newMemories) ? parsed.newMemories : undefined,
         audioUrl: null,
+        isFallback: false,
+        provider: 'gemini',
       };
     } catch (err) {
       console.warn('Gemini inference failed, utilizing mock pedagogical fallback:', err);
-      return this.mockFallback.generateReply(context);
+      const fallbackRes = await this.mockFallback.generateReply(context);
+      return {
+        ...fallbackRes,
+        isFallback: true,
+        provider: 'mock-pedagogical-fallback',
+      };
     }
   }
 

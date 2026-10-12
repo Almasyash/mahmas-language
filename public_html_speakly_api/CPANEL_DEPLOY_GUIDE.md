@@ -20,10 +20,12 @@
 3. Click "Create".
 4. Click "Run NPM Install" to install dependencies.
 
-## Step 3: Configure Database in .env
+## Step 3: Configure Database in .env (Authoritative Neon Cluster)
 1. Open .env in public_html/speakly/api/.env
-2. Set your PostgreSQL DATABASE_URL:
-   DATABASE_URL="postgresql://username:password@localhost:5432/dbname?schema=public"
+2. Set your PostgreSQL DATABASE_URL to the authoritative shared production database:
+   # CRITICAL INVARIANT: cPanel and Render must use the same Neon PostgreSQL cluster
+   # to prevent data desynchronization and missing user accounts during failover.
+   DATABASE_URL="postgresql://neondb_owner:YOUR_NEON_PASSWORD@ep-snowy-mouse-b3il1o8d-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 ## Step 4: Run Prisma Setup
 In the cPanel Node.js app console:
